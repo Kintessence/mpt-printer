@@ -9,10 +9,10 @@
 
     <application
         android:allowBackup="true"
-        android:label="@string/app_name"
+        android:label="Air Printer"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.MPTPrinter">
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
 
         <activity
             android:name=".MainActivity"
