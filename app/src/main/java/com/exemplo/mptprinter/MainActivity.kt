@@ -187,15 +187,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sanitizeText(input: String): String {
-        return input.replace("Ã£", "a").replace("Ãƒ", "A")
-                    .replace("Ãµ", "o").replace("Ã•", "O")
-                    .replace("Ã§", "c").replace("Ã‡", "C")
-                    .replace("Ã©", "e").replace("Ã‰", "E")
-                    .replace("Ãª", "e").replace("ÃŠ", "E")
-                    .replace("Ã¡", "a").replace("Ã", "A")
-                    .replace("Ã­", "i").replace("Ã", "I")
-                    .replace("Ã³", "o").replace("Ã“", "O")
-                    .replace("Ãº", "u").replace("Ãš", "U")
+        return input.replace("ÃƒÂ£", "a").replace("ÃƒÆ’", "A")
+                    .replace("ÃƒÂµ", "o").replace("Ãƒâ€¢", "O")
+                    .replace("ÃƒÂ§", "c").replace("Ãƒâ€¡", "C")
+                    .replace("ÃƒÂ©", "e").replace("Ãƒâ€°", "E")
+                    .replace("ÃƒÂª", "e").replace("ÃƒÅ ", "E")
+                    .replace("ÃƒÂ¡", "a").replace("ÃƒÂ", "A")
+                    .replace("ÃƒÂ­", "i").replace("ÃƒÂ", "I")
+                    .replace("ÃƒÂ³", "o").replace("Ãƒâ€œ", "O")
+                    .replace("ÃƒÂº", "u").replace("ÃƒÅ¡", "U")
     }
 
     private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
