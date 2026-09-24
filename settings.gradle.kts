@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "MPTPrinter"
-include ':app'
+include(":app")
