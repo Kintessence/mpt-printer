@@ -89,6 +89,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun decodeHtmlEntities(input: String): String {
+        return input.replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&quot;", "\"")
+                    .replace("&#39;", "'")
+                    .replace("&nbsp;", " ")
+    }
+
     private fun fetchWebReceipt(urlStr: String) {
         tvStatus.text = "Buscando dados da pagina web..."
         Thread {
@@ -112,17 +121,14 @@ class MainActivity : AppCompatActivity() {
                 conn.disconnect()
 
                 val rawHtml = sb.toString()
-
-                // Se existir tag <pre>, extrai exatamente o miolo preformatado
                 val preMatch = Regex("(?is)<pre[^>]*>(.*?)</pre>").find(rawHtml)
                 val finalResult: String
 
                 if (preMatch != null) {
-                    val preContent = preMatch.groupValues[1]
-                    // Converte entidades comuns como &amp;, &lt;, &gt;, etc sem mexer nas quebras \n
-                    finalResult = Html.fromHtml(preContent, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                    // Preserva os \n originais do bloco pre sem passar pelo Html.fromHtml
+                    finalResult = decodeHtmlEntities(preMatch.groupValues[1]).trim()
                 } else {
-                    // Fallback para páginas sem <pre>
+                    // Fallback para paginas sem <pre>
                     var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
                                        .replace(Regex("(?is)<style.*?</style>"), "")
                                        .replace(Regex("(?i)<br\\s*/?>"), "\n")
@@ -132,7 +138,8 @@ class MainActivity : AppCompatActivity() {
                                        .replace(Regex("(?i)</li>"), "\n")
                                        .replace(Regex("(?i)</td>"), "  ")
 
-                    finalResult = Html.fromHtml(clean, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                    val textOnly = clean.replace(Regex("<[^>]+>"), "")
+                    finalResult = decodeHtmlEntities(textOnly).trim()
                 }
 
                 runOnUiThread {
