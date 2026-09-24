@@ -1,4 +1,4 @@
-﻿package com.exemplo.mptprinter
+package com.exemplo.mptprinter
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -35,15 +35,40 @@ class MainActivity : AppCompatActivity() {
         btnPrint = findViewById(R.id.btnPrint)
         tvStatus = findViewById(R.id.tvStatus)
 
-        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
-            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
-            if (!sharedText.isNullOrEmpty()) {
-                etContent.setText(sharedText)
-            }
-        }
+        handleIncomingIntent(intent)
 
         btnPrint.setOnClickListener {
             checkPermissionsAndPrint()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+
+        var incomingText: String? = null
+
+        if (intent.action == Intent.ACTION_SEND) {
+            // Tenta obter como texto normal
+            incomingText = intent.getStringExtra(Intent.EXTRA_TEXT)
+            
+            // Se for nulo, tenta obter como sequência de caracteres
+            if (incomingText.isNullOrEmpty()) {
+                incomingText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+            }
+        } else if (intent.action == Intent.ACTION_PROCESS_TEXT) {
+            incomingText = intent.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
+        }
+
+        if (!incomingText.isNullOrEmpty()) {
+            etContent.setText(incomingText)
+            etContent.setSelection(etContent.text.length)
+            tvStatus.text = "Texto carregado com sucesso!"
         }
     }
 
@@ -77,11 +102,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (printerDevice == null) {
-            tvStatus.text = "MPT-II não encontrada. Pareie primeiro no Bluetooth do celular."
+            tvStatus.text = "MPT-II não encontrada. Confirme se está emparelhada no Bluetooth."
             return
         }
 
-        tvStatus.text = "Conectando à ${printerDevice.name}..."
+        tvStatus.text = "A ligar a ..."
 
         Thread {
             var socket: BluetoothSocket? = null
@@ -109,7 +134,7 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    tvStatus.text = "Erro: ${e.message}"
+                    tvStatus.text = "Erro: "
                 }
             } finally {
                 try {
