@@ -24,7 +24,6 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
-import java.text.Normalizer
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
@@ -114,25 +113,27 @@ class MainActivity : AppCompatActivity() {
 
                 val rawHtml = sb.toString()
 
-                // 1. Remove blocos inteiros de script e estilo
-                var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
-                                   .replace(Regex("(?is)<style.*?</style>"), "")
+                // Se existir tag <pre>, extrai exatamente o miolo preformatado
+                val preMatch = Regex("(?is)<pre[^>]*>(.*?)</pre>").find(rawHtml)
+                val finalResult: String
 
-                // 2. Insere quebras de linha reais nas tags de bloco HTML
-                clean = clean.replace(Regex("(?i)<br\\s*/?>"), "\n")
-                             .replace(Regex("(?i)</p>"), "\n\n")
-                             .replace(Regex("(?i)</div>"), "\n")
-                             .replace(Regex("(?i)</tr>"), "\n")
-                             .replace(Regex("(?i)</li>"), "\n")
-                             .replace(Regex("(?i)</h[1-6]>"), "\n\n")
-                             .replace(Regex("(?i)</td>"), "  ")
+                if (preMatch != null) {
+                    val preContent = preMatch.groupValues[1]
+                    // Converte entidades comuns como &amp;, &lt;, &gt;, etc sem mexer nas quebras \n
+                    finalResult = Html.fromHtml(preContent, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                } else {
+                    // Fallback para páginas sem <pre>
+                    var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
+                                       .replace(Regex("(?is)<style.*?</style>"), "")
+                                       .replace(Regex("(?i)<br\\s*/?>"), "\n")
+                                       .replace(Regex("(?i)</p>"), "\n\n")
+                                       .replace(Regex("(?i)</div>"), "\n")
+                                       .replace(Regex("(?i)</tr>"), "\n")
+                                       .replace(Regex("(?i)</li>"), "\n")
+                                       .replace(Regex("(?i)</td>"), "  ")
 
-                // 3. Converte entidades HTML remanescentes e remove tags restantes
-                val parsedText = Html.fromHtml(clean, Html.FROM_HTML_MODE_LEGACY).toString()
-
-                // 4. Limpa múltiplos espaços em branco sem engolir as quebras de linha
-                val normalizedLines = parsedText.lines().map { it.trimEnd() }
-                val finalResult = normalizedLines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+                    finalResult = Html.fromHtml(clean, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                }
 
                 runOnUiThread {
                     updateEditor(finalResult)
@@ -164,9 +165,7 @@ class MainActivity : AppCompatActivity() {
         executePrint(etContent.text.toString())
     }
 
-    // Tratamento para garantir legibilidade dos caracteres caso a ROM da impressora falhe
     private fun sanitizeTextForPrinter(input: String): String {
-        // Substituições pontuais seguras
         return input.replace("ã", "a")
                     .replace("Ã", "A")
                     .replace("õ", "o")
@@ -228,14 +227,13 @@ class MainActivity : AppCompatActivity() {
                     socket.connect()
                     outStream = socket.outputStream
 
-                    val ESC_INIT = byteArrayOf(0x1B, 0x40)              // Inicializa impressora
-                    val CODE_PAGE_850 = byteArrayOf(0x1B, 0x74, 0x02)   // Seleciona Tabela CP850
-                    val FEED_AND_CUT = byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A) // 4 linhas de avanço final
+                    val ESC_INIT = byteArrayOf(0x1B, 0x40)
+                    val CODE_PAGE_850 = byteArrayOf(0x1B, 0x74, 0x02)
+                    val FEED_AND_CUT = byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A)
 
                     outStream.write(ESC_INIT)
                     outStream.write(CODE_PAGE_850)
 
-                    // Higieniza caracteres problemáticos para que nenhuma letra seja engolida
                     val printableText = sanitizeTextForPrinter(rawText)
                     val textBytes = printableText.toByteArray(Charset.forName("ISO-8859-1"))
 
