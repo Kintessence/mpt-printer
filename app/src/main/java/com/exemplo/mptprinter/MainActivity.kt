@@ -265,32 +265,40 @@ class MainActivity : AppCompatActivity() {
                     socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
-                    val ESC_INIT = byteArrayOf(0x1B, 0x40) // Reset
+                    val ESC_INIT = byteArrayOf(0x1B, 0x40)
                     outStream.write(ESC_INIT)
 
-                    // Seleção da Code Page correta e conversão de bytes
                     val textBytes: ByteArray
                     when (cpChoice) {
+                        0 -> {
+                            // WPC1252 / Windows-1252 (Codepage 16 na firmware MPT-II)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x10))
+                            textBytes = rawText.toByteArray(Charset.forName("windows-1252"))
+                        }
                         1 -> {
-                            // CP860 (Português)
+                            // CP850
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x02))
+                            textBytes = rawText.toByteArray(Charset.forName("CP850"))
+                        }
+                        2 -> {
+                            // CP860
                             outStream.write(byteArrayOf(0x1B, 0x74, 0x03))
                             textBytes = rawText.toByteArray(Charset.forName("CP860"))
                         }
-                        2 -> {
-                            // Sanitizado (Sem acentos)
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x00))
-                            textBytes = sanitizeText(rawText).toByteArray(Charset.forName("US-ASCII"))
+                        3 -> {
+                            // ISO-8859-1 (Codepage 17)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x11))
+                            textBytes = rawText.toByteArray(Charset.forName("ISO-8859-1"))
                         }
                         else -> {
-                            // CP850 (Multilingual Latin I - Contém â, ê, ô, ç, á, é, etc.)
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x02))
-                            textBytes = rawText.toByteArray(Charset.forName("CP850"))
+                            // Sanitizado
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x00))
+                            textBytes = sanitizeText(rawText).toByteArray(Charset.forName("US-ASCII"))
                         }
                     }
 
                     outStream.write(textBytes)
 
-                    // Avanço dinâmico de linhas conforme configurado
                     val feedBytes = ByteArray(feedLinesCount) { 0x0A }
                     outStream.write(feedBytes)
                     outStream.flush()

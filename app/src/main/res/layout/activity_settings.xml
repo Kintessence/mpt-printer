@@ -19,15 +19,15 @@
         android:id="@+id/cbDirectPrint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Imprimir direto ao compartilhar (sem tela de visualização)"
+        android:text="Imprimir direto ao compartilhar"
         android:textColor="#212121"
         android:textSize="15sp"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Linhas de avanço final (corte):"
+        android:text="Linhas de corte (avanço final):"
         android:textColor="#333333"
         android:textSize="14sp" />
 
@@ -35,13 +35,13 @@
         android:id="@+id/spFeedLines"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Codificação de Acentos (Code Page):"
+        android:text="Tabela de Caracteres / Acentos:"
         android:textColor="#333333"
         android:textSize="14sp" />
 
@@ -49,8 +49,16 @@
         android:id="@+id/spCodePage"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="30dp" />
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/btnTestPrint"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Imprimir Teste de Acentos"
+        android:backgroundTint="#607D8B"
+        android:layout_marginBottom="12dp" />
 
     <Button
         android:id="@+id/btnSaveSettings"
