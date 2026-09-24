@@ -187,15 +187,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sanitizeText(input: String): String {
-        return input.replace("ã", "a").replace("Ã", "A")
-                    .replace("õ", "o").replace("Õ", "O")
-                    .replace("ç", "c").replace("Ç", "C")
-                    .replace("é", "e").replace("É", "E")
-                    .replace("ê", "e").replace("Ê", "E")
-                    .replace("á", "a").replace("Á", "A")
-                    .replace("í", "i").replace("Í", "I")
-                    .replace("ó", "o").replace("Ó", "O")
-                    .replace("ú", "u").replace("Ú", "U")
+        return input.replace("Ã£", "a").replace("Ãƒ", "A")
+                    .replace("Ãµ", "o").replace("Ã•", "O")
+                    .replace("Ã§", "c").replace("Ã‡", "C")
+                    .replace("Ã©", "e").replace("Ã‰", "E")
+                    .replace("Ãª", "e").replace("ÃŠ", "E")
+                    .replace("Ã¡", "a").replace("Ã", "A")
+                    .replace("Ã­", "i").replace("Ã", "I")
+                    .replace("Ã³", "o").replace("Ã“", "O")
+                    .replace("Ãº", "u").replace("Ãš", "U")
     }
 
     private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
@@ -314,8 +314,8 @@ class MainActivity : AppCompatActivity() {
                         tvStatus.text = "Erro ao imprimir: " + (e.message ?: "Erro desconhecido")
                     }
                 } finally {
-                    try { outStream?.close() } catch (_: Throwable) {}
-                    try { socket?.close() } catch (_: Throwable) {}
+                    try { outStream?.close() } catch (ignored: Throwable) {}
+                    try { socket?.close() } catch (ignored: Throwable) {}
                 }
             }.start()
         } catch (e: Throwable) {

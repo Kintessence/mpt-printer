@@ -113,7 +113,7 @@ class SettingsActivity : AppCompatActivity() {
                     val s = printer.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
                     s.connect()
                     s
-                } catch (_: Exception) {
+                } catch (e1: Exception) {
                     val m = printer.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
                     val s = m.invoke(printer, 1) as BluetoothSocket
                     s.connect()
@@ -124,23 +124,23 @@ class SettingsActivity : AppCompatActivity() {
                 val testWord = "diametro acao Nao avo\n"
 
                 fun printSample(title: String, cmd: ByteArray, charsetName: String) {
-                    out.write(byteArrayOf(0x1B, 0x40)) // init
+                    out.write(byteArrayOf(0x1B, 0x40))
                     out.write(cmd)
                     out.write((title + "\n").toByteArray(Charset.forName("US-ASCII")))
                     out.write(testWord.toByteArray(Charset.forName(charsetName)))
                     out.write(byteArrayOf(0x0A))
                 }
 
-                // Teste 1: WPC1252 (Comando 0x10 / 16)
+                // Teste 1: WPC1252 (1B 74 10)
                 printSample("1. WPC1252 (1B 74 10):", byteArrayOf(0x1B, 0x74, 0x10), "windows-1252")
 
-                // Teste 2: CP850 (Comando 0x02)
+                // Teste 2: CP850 (1B 74 02)
                 printSample("2. CP850 (1B 74 02):", byteArrayOf(0x1B, 0x74, 0x02), "CP850")
 
-                // Teste 3: CP860 (Comando 0x03)
+                // Teste 3: CP860 (1B 74 03)
                 printSample("3. CP860 (1B 74 03):", byteArrayOf(0x1B, 0x74, 0x03), "CP860")
 
-                // Teste 4: ISO-8859-1 (Comando 0x11 / 17)
+                // Teste 4: ISO-8859-1 (1B 74 11)
                 printSample("4. ISO-8859-1 (1B 74 11):", byteArrayOf(0x1B, 0x74, 0x11), "ISO-8859-1")
 
                 out.write(byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A))
@@ -148,15 +148,15 @@ class SettingsActivity : AppCompatActivity() {
                 Thread.sleep(200)
 
                 runOnUiThread {
-                    Toast.makeText(this, "Teste impresso! Veja qual opcao ficou legivel.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Teste impresso!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(this, "Erro no teste: " + e.message, Toast.LENGTH_SHORT).show()
                 }
             } finally {
-                try { out?.close() } catch (_: Throwable) {}
-                try { socket?.close() } catch (_: Throwable) {}
+                try { out?.close() } catch (ignored: Throwable) {}
+                try { socket?.close() } catch (ignored: Throwable) {}
             }
         }.start()
     }
