@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.text.Html
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
@@ -30,6 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var etContent: EditText
     private lateinit var btnPrint: Button
+    private lateinit var btnSettings: Button
     private lateinit var tvStatus: TextView
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
@@ -40,7 +40,12 @@ class MainActivity : AppCompatActivity() {
 
             etContent = findViewById(R.id.etContent)
             btnPrint = findViewById(R.id.btnPrint)
+            btnSettings = findViewById(R.id.btnSettings)
             tvStatus = findViewById(R.id.tvStatus)
+
+            btnSettings.setOnClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
 
             btnPrint.setOnClickListener {
                 checkPermissionsAndPrint()
@@ -82,10 +87,20 @@ class MainActivity : AppCompatActivity() {
                     fetchWebReceipt(match.value)
                 } else {
                     updateEditor(incomingText)
+                    checkAutoPrint(incomingText)
                 }
             }
         } catch (e: Throwable) {
             tvStatus.text = "Falha ao processar: " + e.message
+        }
+    }
+
+    private fun checkAutoPrint(text: String) {
+        val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
+        val isDirectPrint = prefs.getBoolean("direct_print", false)
+        if (isDirectPrint && text.isNotBlank()) {
+            tvStatus.text = "Disparando impressao direta..."
+            checkPermissionsAndPrint()
         }
     }
 
@@ -99,7 +114,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchWebReceipt(urlStr: String) {
-        tvStatus.text = "Buscando dados da pagina web..."
+        tvStatus.text = "Buscando recibo na web..."
         Thread {
             try {
                 val url = URL(urlStr)
@@ -142,7 +157,8 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     updateEditor(finalResult)
-                    tvStatus.text = "Recibo pronto para imprimir!"
+                    tvStatus.text = "Recibo carregado!"
+                    checkAutoPrint(finalResult)
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
@@ -170,44 +186,30 @@ class MainActivity : AppCompatActivity() {
         executePrint(etContent.text.toString())
     }
 
-    private fun sanitizeTextForPrinter(input: String): String {
-        return input.replace("ã", "a")
-                    .replace("Ã", "A")
-                    .replace("õ", "o")
-                    .replace("Õ", "O")
-                    .replace("ç", "c")
-                    .replace("Ç", "C")
-                    .replace("é", "e")
-                    .replace("É", "E")
-                    .replace("ê", "e")
-                    .replace("Ê", "E")
-                    .replace("á", "a")
-                    .replace("Á", "A")
-                    .replace("í", "i")
-                    .replace("Í", "I")
-                    .replace("ó", "o")
-                    .replace("Ó", "O")
-                    .replace("ú", "u")
-                    .replace("Ú", "U")
+    private fun sanitizeText(input: String): String {
+        return input.replace("ã", "a").replace("Ã", "A")
+                    .replace("õ", "o").replace("Õ", "O")
+                    .replace("ç", "c").replace("Ç", "C")
+                    .replace("é", "e").replace("É", "E")
+                    .replace("ê", "e").replace("Ê", "E")
+                    .replace("á", "a").replace("Á", "A")
+                    .replace("í", "i").replace("Í", "I")
+                    .replace("ó", "o").replace("Ó", "O")
+                    .replace("ú", "u").replace("Ú", "U")
     }
 
     private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
-        // Tentativa 1: Insecure RFCOMM (evita travar o handshake SDP na MPT-II)
         return try {
             val s = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
             s.connect()
             s
         } catch (e1: Exception) {
-            Log.w("AirPrinter", "Tentativa 1 falhou, tentando canal 1 direto via reflexao...", e1)
-            // Tentativa 2: Porta RFCOMM canal 1 direta via reflection (padrao de placas POS/MPT-II)
             try {
                 val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
                 val s = method.invoke(device, 1) as BluetoothSocket
                 s.connect()
                 s
             } catch (e2: Exception) {
-                Log.w("AirPrinter", "Tentativa 2 falhou, tentando Secure RFCOMM padrao...", e2)
-                // Tentativa 3: Metodo seguro padrao
                 val s = device.createRfcommSocketToServiceRecord(SPP_UUID)
                 s.connect()
                 s
@@ -226,7 +228,7 @@ class MainActivity : AppCompatActivity() {
             val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
 
             if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-                tvStatus.text = "Bluetooth desligado ou indisponivel."
+                tvStatus.text = "Bluetooth desligado."
                 return
             }
 
@@ -248,34 +250,51 @@ class MainActivity : AppCompatActivity() {
 
             tvStatus.text = "Conectando a " + printerDevice.name + "..."
 
+            val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
+            val feedLinesCount = prefs.getInt("feed_lines", 4)
+            val cpChoice = prefs.getInt("codepage_index", 0)
+
             Thread {
                 var socket: BluetoothSocket? = null
                 var outStream: OutputStream? = null
                 try {
-                    // CRUCIAL: Cancela discovery para liberar a largura de banda e conexao de RFCOMM
                     if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                         bluetoothAdapter.cancelDiscovery()
                     }
 
-                    // Conexao resiliente com fallbacks para evitar socket zumbi
                     socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
-                    val ESC_INIT = byteArrayOf(0x1B, 0x40)
-                    val CODE_PAGE_850 = byteArrayOf(0x1B, 0x74, 0x02)
-                    val FEED_AND_CUT = byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A)
-
+                    val ESC_INIT = byteArrayOf(0x1B, 0x40) // Reset
                     outStream.write(ESC_INIT)
-                    outStream.write(CODE_PAGE_850)
 
-                    val printableText = sanitizeTextForPrinter(rawText)
-                    val textBytes = printableText.toByteArray(Charset.forName("ISO-8859-1"))
+                    // Seleção da Code Page correta e conversão de bytes
+                    val textBytes: ByteArray
+                    when (cpChoice) {
+                        1 -> {
+                            // CP860 (Português)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x03))
+                            textBytes = rawText.toByteArray(Charset.forName("CP860"))
+                        }
+                        2 -> {
+                            // Sanitizado (Sem acentos)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x00))
+                            textBytes = sanitizeText(rawText).toByteArray(Charset.forName("US-ASCII"))
+                        }
+                        else -> {
+                            // CP850 (Multilingual Latin I - Contém â, ê, ô, ç, á, é, etc.)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x02))
+                            textBytes = rawText.toByteArray(Charset.forName("CP850"))
+                        }
+                    }
 
                     outStream.write(textBytes)
-                    outStream.write(FEED_AND_CUT)
+
+                    // Avanço dinâmico de linhas conforme configurado
+                    val feedBytes = ByteArray(feedLinesCount) { 0x0A }
+                    outStream.write(feedBytes)
                     outStream.flush()
 
-                    // Espera 200ms para a controladora termica consumir o buffer antes de fechar o canal
                     Thread.sleep(200)
 
                     runOnUiThread {
@@ -283,17 +302,12 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
-                    Log.e("AirPrinter", "Erro ao conectar/imprimir", e)
                     runOnUiThread {
-                        tvStatus.text = "Erro de conexao com a impressora: " + (e.message ?: "Verifique se a impressora esta ligada")
+                        tvStatus.text = "Erro ao imprimir: " + (e.message ?: "Erro desconhecido")
                     }
                 } finally {
-                    try {
-                        outStream?.close()
-                    } catch (_: Throwable) {}
-                    try {
-                        socket?.close()
-                    } catch (_: Throwable) {}
+                    try { outStream?.close() } catch (_: Throwable) {}
+                    try { socket?.close() } catch (_: Throwable) {}
                 }
             }.start()
         } catch (e: Throwable) {
