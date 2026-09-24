@@ -19,14 +19,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Configurar Gradle
+    - name: Configurar Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Configurar Gradle 8.5
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.5'
         cache-disabled: true
 
     - name: Compilar APK Debug
-      run: gradle assembleDebug --no-daemon
+      run: gradle assembleDebug --stacktrace --no-daemon
 
     - name: Disponibilizar APK para download
       uses: actions/upload-artifact@v4
