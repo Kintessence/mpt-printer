@@ -125,10 +125,8 @@ class MainActivity : AppCompatActivity() {
                 val finalResult: String
 
                 if (preMatch != null) {
-                    // Preserva os \n originais do bloco pre sem passar pelo Html.fromHtml
                     finalResult = decodeHtmlEntities(preMatch.groupValues[1]).trim()
                 } else {
-                    // Fallback para paginas sem <pre>
                     var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
                                        .replace(Regex("(?is)<style.*?</style>"), "")
                                        .replace(Regex("(?i)<br\\s*/?>"), "\n")
@@ -193,6 +191,30 @@ class MainActivity : AppCompatActivity() {
                     .replace("Ú", "U")
     }
 
+    private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
+        // Tentativa 1: Insecure RFCOMM (evita travar o handshake SDP na MPT-II)
+        return try {
+            val s = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
+            s.connect()
+            s
+        } catch (e1: Exception) {
+            Log.w("AirPrinter", "Tentativa 1 falhou, tentando canal 1 direto via reflexao...", e1)
+            // Tentativa 2: Porta RFCOMM canal 1 direta via reflection (padrao de placas POS/MPT-II)
+            try {
+                val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                val s = method.invoke(device, 1) as BluetoothSocket
+                s.connect()
+                s
+            } catch (e2: Exception) {
+                Log.w("AirPrinter", "Tentativa 2 falhou, tentando Secure RFCOMM padrao...", e2)
+                // Tentativa 3: Metodo seguro padrao
+                val s = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                s.connect()
+                s
+            }
+        }
+    }
+
     private fun executePrint(rawText: String) {
         if (rawText.isBlank()) {
             Toast.makeText(this, "Nenhum texto para imprimir.", Toast.LENGTH_SHORT).show()
@@ -230,8 +252,13 @@ class MainActivity : AppCompatActivity() {
                 var socket: BluetoothSocket? = null
                 var outStream: OutputStream? = null
                 try {
-                    socket = printerDevice.createRfcommSocketToServiceRecord(SPP_UUID)
-                    socket.connect()
+                    // CRUCIAL: Cancela discovery para liberar a largura de banda e conexao de RFCOMM
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                        bluetoothAdapter.cancelDiscovery()
+                    }
+
+                    // Conexao resiliente com fallbacks para evitar socket zumbi
+                    socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
                     val ESC_INIT = byteArrayOf(0x1B, 0x40)
@@ -248,17 +275,23 @@ class MainActivity : AppCompatActivity() {
                     outStream.write(FEED_AND_CUT)
                     outStream.flush()
 
+                    // Espera 200ms para a controladora termica consumir o buffer antes de fechar o canal
+                    Thread.sleep(200)
+
                     runOnUiThread {
                         tvStatus.text = "Impressao concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
+                    Log.e("AirPrinter", "Erro ao conectar/imprimir", e)
                     runOnUiThread {
-                        tvStatus.text = "Erro de impressao: " + e.message
+                        tvStatus.text = "Erro de conexao com a impressora: " + (e.message ?: "Verifique se a impressora esta ligada")
                     }
                 } finally {
                     try {
                         outStream?.close()
+                    } catch (_: Throwable) {}
+                    try {
                         socket?.close()
                     } catch (_: Throwable) {}
                 }
