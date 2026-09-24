@@ -1,16 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#F5F5F5">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Conteúdo para Impressão (MPT-II 58mm):"
+        android:text="Air Printer (MPT-II 58mm)"
         android:textStyle="bold"
-        android:textSize="16sp" />
+        android:textSize="18sp"
+        android:textColor="#212121" />
 
     <EditText
         android:id="@+id/etContent"
@@ -19,9 +21,11 @@
         android:layout_weight="1"
         android:gravity="top|start"
         android:hint="Cole ou compartilhe o texto aqui..."
+        android:textColorHint="#888888"
+        android:textColor="#000000"
+        android:background="#FFFFFF"
         android:inputType="textMultiLine"
-        android:background="@android:drawable/editbox_background_normal"
-        android:padding="10dp"
+        android:padding="12dp"
         android:layout_marginTop="12dp"
         android:layout_marginBottom="12dp" />
 
@@ -37,6 +41,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:textColor="#555555"
+        android:textColor="#333333"
         android:textAlignment="center" />
 </LinearLayout>

@@ -10,13 +10,18 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.text.Html
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.charset.Charset
 import java.util.UUID
 
@@ -54,10 +59,7 @@ class MainActivity : AppCompatActivity() {
         var incomingText: String? = null
 
         if (intent.action == Intent.ACTION_SEND) {
-            // Tenta obter como texto normal
             incomingText = intent.getStringExtra(Intent.EXTRA_TEXT)
-            
-            // Se for nulo, tenta obter como sequência de caracteres
             if (incomingText.isNullOrEmpty()) {
                 incomingText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
             }
@@ -66,10 +68,65 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (!incomingText.isNullOrEmpty()) {
-            etContent.setText(incomingText)
-            etContent.setSelection(etContent.text.length)
-            tvStatus.text = "Texto carregado com sucesso!"
+            val trimmed = incomingText.trim()
+            // Detecta se o compartilhamento foi uma URL
+            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                fetchWebReceipt(trimmed)
+            } else {
+                updateEditor(incomingText)
+            }
         }
+    }
+
+    private fun fetchWebReceipt(urlStr: String) {
+        tvStatus.text = "A descarregar dados do recibo web..."
+        Thread {
+            try {
+                val url = URL(urlStr)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+
+                val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
+                val reader = BufferedReader(InputStreamReader(stream))
+                val sb = StringBuilder()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    sb.append(line).append("\n")
+                }
+                reader.close()
+                conn.disconnect()
+
+                val rawHtml = sb.toString()
+                // Limpeza de tags de estilo e script antes de extrair texto
+                val cleanedHtml = rawHtml.replace("(?s)<script.*?</script>".toRegex(), "")
+                                         .replace("(?s)<style.*?</style>".toRegex(), "")
+                                         .replace("<br\\s*/?>".toRegex(), "\n")
+                                         .replace("</p>".toRegex(), "\n\n")
+                                         .replace("</div>".toRegex(), "\n")
+                                         .replace("</tr>".toRegex(), "\n")
+                                         .replace("</td>".toRegex(), " ")
+
+                val parsedText = Html.fromHtml(cleanedHtml, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+
+                runOnUiThread {
+                    updateEditor(parsedText)
+                    tvStatus.text = "Recibo pronto para impressão!"
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    tvStatus.text = "Erro ao ler página web: "
+                    updateEditor(urlStr)
+                }
+            }
+        }.start()
+    }
+
+    private fun updateEditor(text: String) {
+        etContent.setText(text)
+        etContent.setSelection(etContent.text.length)
     }
 
     private fun checkPermissionsAndPrint() {
@@ -92,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
 
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            tvStatus.text = "Bluetooth desativado ou indisponível."
+            tvStatus.text = "Bluetooth desligado ou indisponível."
             return
         }
 
@@ -102,7 +159,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (printerDevice == null) {
-            tvStatus.text = "MPT-II não encontrada. Confirme se está emparelhada no Bluetooth."
+            tvStatus.text = "MPT-II não encontrada. Confirme se está emparelhada."
             return
         }
 
