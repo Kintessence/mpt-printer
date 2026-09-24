@@ -120,7 +120,7 @@ class SettingsActivity : AppCompatActivity() {
                     s
                 }
 
-                out = socket.outputStream
+                out = socket?.outputStream ?: throw IllegalStateException("Não foi possível obter o fluxo de saída")
                 val testWord = "diametro acao Nao avo\n"
 
                 fun printSample(title: String, cmd: ByteArray, charsetName: String) {
