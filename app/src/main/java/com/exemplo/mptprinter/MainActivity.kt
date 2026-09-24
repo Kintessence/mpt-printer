@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
             handleIncomingIntent(intent)
         } catch (e: Throwable) {
             Log.e("AirPrinter", "Erro no onCreate", e)
-            Toast.makeText(this, "Erro ao iniciar: \", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Erro ao iniciar: " + e.message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -76,21 +76,21 @@ class MainActivity : AppCompatActivity() {
 
             if (!incomingText.isNullOrEmpty()) {
                 val trimmed = incomingText.trim()
-                // Se for URL (ou contiver http/https no texto)
-                val urlMatch = Regex("https?://[^\s]+").find(trimmed)?.value
-                if (urlMatch != null) {
-                    fetchWebReceipt(urlMatch)
+                val urlRegex = Regex("https?://\\S+")
+                val match = urlRegex.find(trimmed)
+                if (match != null) {
+                    fetchWebReceipt(match.value)
                 } else {
                     updateEditor(incomingText)
                 }
             }
         } catch (e: Throwable) {
-            tvStatus.text = "Falha ao processar compartilhamento: \"
+            tvStatus.text = "Falha ao processar: " + e.message
         }
     }
 
     private fun fetchWebReceipt(urlStr: String) {
-        tvStatus.text = "Buscando dados da página web..."
+        tvStatus.text = "Buscando dados da pagina web..."
         Thread {
             try {
                 val url = URL(urlStr)
@@ -112,13 +112,13 @@ class MainActivity : AppCompatActivity() {
                 conn.disconnect()
 
                 val rawHtml = sb.toString()
-                val cleanedHtml = rawHtml.replace("(?s)<script.*?</script>".toRegex(), "")
-                                         .replace("(?s)<style.*?</style>".toRegex(), "")
-                                         .replace("<br\s*/?>".toRegex(), "\n")
-                                         .replace("</p>".toRegex(), "\n\n")
-                                         .replace("</div>".toRegex(), "\n")
-                                         .replace("</tr>".toRegex(), "\n")
-                                         .replace("</td>".toRegex(), " ")
+                val cleanedHtml = rawHtml.replace(Regex("(?s)<script.*?</script>"), "")
+                                         .replace(Regex("(?s)<style.*?</style>"), "")
+                                         .replace(Regex("<br\\s*/?>"), "\n")
+                                         .replace(Regex("</p>"), "\n\n")
+                                         .replace(Regex("</div>"), "\n")
+                                         .replace(Regex("</tr>"), "\n")
+                                         .replace(Regex("</td>"), " ")
 
                 val parsedText = Html.fromHtml(cleanedHtml, Html.FROM_HTML_MODE_LEGACY).toString().trim()
 
@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
-                    tvStatus.text = "Erro ao baixar página: \"
+                    tvStatus.text = "Erro ao baixar pagina: " + e.message
                     updateEditor(urlStr)
                 }
             }
@@ -163,13 +163,13 @@ class MainActivity : AppCompatActivity() {
             val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
 
             if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-                tvStatus.text = "Bluetooth desligado ou indisponível."
+                tvStatus.text = "Bluetooth desligado ou indisponivel."
                 return
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                tvStatus.text = "Permissão Bluetooth não concedida."
+                tvStatus.text = "Permissao Bluetooth nao concedida."
                 return
             }
 
@@ -179,11 +179,11 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (printerDevice == null) {
-                tvStatus.text = "MPT-II não encontrada. Confirme se está pareada."
+                tvStatus.text = "MPT-II nao encontrada nos pareados."
                 return
             }
 
-            tvStatus.text = "Conectando à \..."
+            tvStatus.text = "Conectando a " + printerDevice.name + "..."
 
             Thread {
                 var socket: BluetoothSocket? = null
@@ -206,12 +206,12 @@ class MainActivity : AppCompatActivity() {
                     outStream.flush()
 
                     runOnUiThread {
-                        tvStatus.text = "Impressão concluída!"
+                        tvStatus.text = "Impressao concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
                     runOnUiThread {
-                        tvStatus.text = "Erro de impressão: \"
+                        tvStatus.text = "Erro de impressao: " + e.message
                     }
                 } finally {
                     try {
@@ -221,7 +221,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }.start()
         } catch (e: Throwable) {
-            tvStatus.text = "Falha geral no Bluetooth: \"
+            tvStatus.text = "Falha geral no Bluetooth: " + e.message
         }
     }
 }
