@@ -11,8 +11,13 @@ android {
         applicationId = "com.exemplo.mptprinter"
         minSdk = 21
         targetSdk = 34
+<<<<<<< HEAD
         versionCode = 13
         versionName = "2.2"
+=======
+        versionCode = 13
+        versionName = "2.2"
+>>>>>>> 5c5d0029b3431fd9cad29c0b44788d01c4f0d0d5
     }
 
     buildTypes {

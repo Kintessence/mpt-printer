@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.text.Html
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
@@ -30,6 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var etContent: EditText
     private lateinit var btnPrint: Button
+    private lateinit var btnSettings: Button
     private lateinit var tvStatus: TextView
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
@@ -40,7 +40,12 @@ class MainActivity : AppCompatActivity() {
 
             etContent = findViewById(R.id.etContent)
             btnPrint = findViewById(R.id.btnPrint)
+            btnSettings = findViewById(R.id.btnSettings)
             tvStatus = findViewById(R.id.tvStatus)
+
+            btnSettings.setOnClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
 
             btnPrint.setOnClickListener {
                 checkPermissionsAndPrint()
@@ -49,7 +54,7 @@ class MainActivity : AppCompatActivity() {
             handleIncomingIntent(intent)
         } catch (e: Throwable) {
             Log.e("AirPrinter", "Erro no onCreate", e)
-            Toast.makeText(this, "Erro ao iniciar: \", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Erro ao iniciar: " + e.message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -76,21 +81,40 @@ class MainActivity : AppCompatActivity() {
 
             if (!incomingText.isNullOrEmpty()) {
                 val trimmed = incomingText.trim()
-                // Se for URL (ou contiver http/https no texto)
-                val urlMatch = Regex("https?://[^\s]+").find(trimmed)?.value
-                if (urlMatch != null) {
-                    fetchWebReceipt(urlMatch)
+                val urlRegex = Regex("https?://\\S+")
+                val match = urlRegex.find(trimmed)
+                if (match != null) {
+                    fetchWebReceipt(match.value)
                 } else {
                     updateEditor(incomingText)
+                    checkAutoPrint(incomingText)
                 }
             }
         } catch (e: Throwable) {
-            tvStatus.text = "Falha ao processar compartilhamento: \"
+            tvStatus.text = "Falha ao processar: " + e.message
         }
     }
 
+    private fun checkAutoPrint(text: String) {
+        val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
+        val isDirectPrint = prefs.getBoolean("direct_print", false)
+        if (isDirectPrint && text.isNotBlank()) {
+            tvStatus.text = "Disparando impressao direta..."
+            checkPermissionsAndPrint()
+        }
+    }
+
+    private fun decodeHtmlEntities(input: String): String {
+        return input.replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&quot;", "\"")
+                    .replace("&#39;", "'")
+                    .replace("&nbsp;", " ")
+    }
+
     private fun fetchWebReceipt(urlStr: String) {
-        tvStatus.text = "Buscando dados da página web..."
+        tvStatus.text = "Buscando recibo na web..."
         Thread {
             try {
                 val url = URL(urlStr)
@@ -102,7 +126,7 @@ class MainActivity : AppCompatActivity() {
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10)")
 
                 val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-                val reader = BufferedReader(InputStreamReader(stream))
+                val reader = BufferedReader(InputStreamReader(stream, "UTF-8"))
                 val sb = StringBuilder()
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
@@ -112,23 +136,33 @@ class MainActivity : AppCompatActivity() {
                 conn.disconnect()
 
                 val rawHtml = sb.toString()
-                val cleanedHtml = rawHtml.replace("(?s)<script.*?</script>".toRegex(), "")
-                                         .replace("(?s)<style.*?</style>".toRegex(), "")
-                                         .replace("<br\s*/?>".toRegex(), "\n")
-                                         .replace("</p>".toRegex(), "\n\n")
-                                         .replace("</div>".toRegex(), "\n")
-                                         .replace("</tr>".toRegex(), "\n")
-                                         .replace("</td>".toRegex(), " ")
+                val preMatch = Regex("(?is)<pre[^>]*>(.*?)</pre>").find(rawHtml)
+                val finalResult: String
 
-                val parsedText = Html.fromHtml(cleanedHtml, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                if (preMatch != null) {
+                    finalResult = decodeHtmlEntities(preMatch.groupValues[1]).trim()
+                } else {
+                    var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
+                                       .replace(Regex("(?is)<style.*?</style>"), "")
+                                       .replace(Regex("(?i)<br\\s*/?>"), "\n")
+                                       .replace(Regex("(?i)</p>"), "\n\n")
+                                       .replace(Regex("(?i)</div>"), "\n")
+                                       .replace(Regex("(?i)</tr>"), "\n")
+                                       .replace(Regex("(?i)</li>"), "\n")
+                                       .replace(Regex("(?i)</td>"), "  ")
+
+                    val textOnly = clean.replace(Regex("<[^>]+>"), "")
+                    finalResult = decodeHtmlEntities(textOnly).trim()
+                }
 
                 runOnUiThread {
-                    updateEditor(parsedText)
-                    tvStatus.text = "Recibo pronto para imprimir!"
+                    updateEditor(finalResult)
+                    tvStatus.text = "Recibo carregado!"
+                    checkAutoPrint(finalResult)
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
-                    tvStatus.text = "Erro ao baixar página: \"
+                    tvStatus.text = "Erro ao baixar pagina: " + e.message
                     updateEditor(urlStr)
                 }
             }
@@ -152,6 +186,37 @@ class MainActivity : AppCompatActivity() {
         executePrint(etContent.text.toString())
     }
 
+    private fun sanitizeText(input: String): String {
+        return input.replace("ÃƒÂ£", "a").replace("ÃƒÆ’", "A")
+                    .replace("ÃƒÂµ", "o").replace("Ãƒâ€¢", "O")
+                    .replace("ÃƒÂ§", "c").replace("Ãƒâ€¡", "C")
+                    .replace("ÃƒÂ©", "e").replace("Ãƒâ€°", "E")
+                    .replace("ÃƒÂª", "e").replace("ÃƒÅ ", "E")
+                    .replace("ÃƒÂ¡", "a").replace("ÃƒÂ", "A")
+                    .replace("ÃƒÂ­", "i").replace("ÃƒÂ", "I")
+                    .replace("ÃƒÂ³", "o").replace("Ãƒâ€œ", "O")
+                    .replace("ÃƒÂº", "u").replace("ÃƒÅ¡", "U")
+    }
+
+    private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
+        return try {
+            val s = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
+            s.connect()
+            s
+        } catch (e1: Exception) {
+            try {
+                val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                val s = method.invoke(device, 1) as BluetoothSocket
+                s.connect()
+                s
+            } catch (e2: Exception) {
+                val s = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                s.connect()
+                s
+            }
+        }
+    }
+
     private fun executePrint(rawText: String) {
         if (rawText.isBlank()) {
             Toast.makeText(this, "Nenhum texto para imprimir.", Toast.LENGTH_SHORT).show()
@@ -163,13 +228,13 @@ class MainActivity : AppCompatActivity() {
             val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
 
             if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-                tvStatus.text = "Bluetooth desligado ou indisponível."
+                tvStatus.text = "Bluetooth desligado."
                 return
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                tvStatus.text = "Permissão Bluetooth não concedida."
+                tvStatus.text = "Permissao Bluetooth nao concedida."
                 return
             }
 
@@ -179,49 +244,82 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (printerDevice == null) {
-                tvStatus.text = "MPT-II não encontrada. Confirme se está pareada."
+                tvStatus.text = "MPT-II nao encontrada nos pareados."
                 return
             }
 
-            tvStatus.text = "Conectando à \..."
+            tvStatus.text = "Conectando a " + printerDevice.name + "..."
+
+            val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
+            val feedLinesCount = prefs.getInt("feed_lines", 4)
+            val cpChoice = prefs.getInt("codepage_index", 0)
 
             Thread {
                 var socket: BluetoothSocket? = null
                 var outStream: OutputStream? = null
                 try {
-                    socket = printerDevice.createRfcommSocketToServiceRecord(SPP_UUID)
-                    socket.connect()
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                        bluetoothAdapter.cancelDiscovery()
+                    }
+
+                    socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
                     val ESC_INIT = byteArrayOf(0x1B, 0x40)
-                    val CODE_PAGE_860 = byteArrayOf(0x1B, 0x74, 0x03)
-                    val FEED_AND_CUT = byteArrayOf(0x0A, 0x0A, 0x0A)
-
                     outStream.write(ESC_INIT)
-                    outStream.write(CODE_PAGE_860)
 
-                    val textBytes = rawText.toByteArray(Charset.forName("CP860"))
+                    val textBytes: ByteArray
+                    when (cpChoice) {
+                        0 -> {
+                            // WPC1252 / Windows-1252 (Codepage 16 na firmware MPT-II)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x10))
+                            textBytes = rawText.toByteArray(Charset.forName("windows-1252"))
+                        }
+                        1 -> {
+                            // CP850
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x02))
+                            textBytes = rawText.toByteArray(Charset.forName("CP850"))
+                        }
+                        2 -> {
+                            // CP860
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x03))
+                            textBytes = rawText.toByteArray(Charset.forName("CP860"))
+                        }
+                        3 -> {
+                            // ISO-8859-1 (Codepage 17)
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x11))
+                            textBytes = rawText.toByteArray(Charset.forName("ISO-8859-1"))
+                        }
+                        else -> {
+                            // Sanitizado
+                            outStream.write(byteArrayOf(0x1B, 0x74, 0x00))
+                            textBytes = sanitizeText(rawText).toByteArray(Charset.forName("US-ASCII"))
+                        }
+                    }
+
                     outStream.write(textBytes)
-                    outStream.write(FEED_AND_CUT)
+
+                    val feedBytes = ByteArray(feedLinesCount) { 0x0A }
+                    outStream.write(feedBytes)
                     outStream.flush()
 
+                    Thread.sleep(200)
+
                     runOnUiThread {
-                        tvStatus.text = "Impressão concluída!"
+                        tvStatus.text = "Impressao concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
                     runOnUiThread {
-                        tvStatus.text = "Erro de impressão: \"
+                        tvStatus.text = "Erro ao imprimir: " + (e.message ?: "Erro desconhecido")
                     }
                 } finally {
-                    try {
-                        outStream?.close()
-                        socket?.close()
-                    } catch (_: Throwable) {}
+                    try { outStream?.close() } catch (ignored: Throwable) {}
+                    try { socket?.close() } catch (ignored: Throwable) {}
                 }
             }.start()
         } catch (e: Throwable) {
-            tvStatus.text = "Falha geral no Bluetooth: \"
+            tvStatus.text = "Falha geral no Bluetooth: " + e.message
         }
     }
 }

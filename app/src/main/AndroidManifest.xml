@@ -13,7 +13,7 @@
         android:label="Air Printer"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <activity
             android:name=".MainActivity"
@@ -30,5 +30,10 @@
                 <data android:mimeType="text/*" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:label="Configurações"
+            android:exported="false" />
     </application>
 </manifest>

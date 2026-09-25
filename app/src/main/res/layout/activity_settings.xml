@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#FFFFFF">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Configurações de Impressão"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:textColor="#212121"
+        android:layout_marginBottom="20dp" />
+
+    <CheckBox
+        android:id="@+id/cbDirectPrint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Imprimir direto ao compartilhar"
+        android:textColor="#212121"
+        android:textSize="15sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Linhas de corte (avanço final):"
+        android:textColor="#333333"
+        android:textSize="14sp" />
+
+    <Spinner
+        android:id="@+id/spFeedLines"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tabela de Caracteres / Acentos:"
+        android:textColor="#333333"
+        android:textSize="14sp" />
+
+    <Spinner
+        android:id="@+id/spCodePage"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/btnTestPrint"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Imprimir Teste de Acentos"
+        android:backgroundTint="#607D8B"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnSaveSettings"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Salvar Configurações" />
+</LinearLayout>
