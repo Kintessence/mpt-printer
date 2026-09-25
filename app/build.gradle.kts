@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    kotlin("android")
 }
 
 android {
@@ -9,28 +9,29 @@ android {
 
     defaultConfig {
         applicationId = "com.exemplo.mptprinter"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 34
-<<<<<<< HEAD
-        versionCode = 13
-        versionName = "2.2"
-=======
-        versionCode = 13
-        versionName = "2.2"
->>>>>>> 5c5d0029b3431fd9cad29c0b44788d01c4f0d0d5
+        versionCode = 14
+        versionName = "2.3"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "1.8"
     }
 }
 
