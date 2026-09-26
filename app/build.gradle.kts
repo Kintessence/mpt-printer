@@ -7,11 +7,20 @@ android {
     namespace = "com.exemplo.mptprinter"
     compileSdk = 34
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.jks")
+            storePassword = "airprinter123"
+            keyAlias = "airprinter"
+            keyPassword = "airprinter123"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.exemplo.mptprinter"
         minSdk = 23
         targetSdk = 34
-        versionCode = 25
+        versionCode = 26
         versionName = "2.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -20,6 +29,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
