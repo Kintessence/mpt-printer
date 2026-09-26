@@ -13,6 +13,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -35,6 +36,8 @@ class SettingsActivity : AppCompatActivity() {
 
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val REQ_BT_PERMISSION = 102
+    private val REQ_INSTALL_PERMISSION = 103
+
     private var hasNewUpdate = false
     private var downloadUrl: String? = null
 
@@ -93,14 +96,63 @@ class SettingsActivity : AppCompatActivity() {
 
         btnCheckUpdate.setOnClickListener {
             if (hasNewUpdate || downloadUrl != null) {
-                downloadAndInstallUpdate(btnCheckUpdate)
+                // 1. Verifica permissão de instalar apps ANTES de baixar
+                if (checkInstallPermission()) {
+                    downloadAndInstallUpdate(btnCheckUpdate)
+                }
             } else {
                 checkForUpdates(btnCheckUpdate, manualClick = true)
             }
         }
 
-        // Checagem automática ao abrir a tela
+        // Checagem automática ao abrir
         checkForUpdates(btnCheckUpdate, manualClick = false)
+    }
+
+    private fun checkInstallPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(this, "Ative a permissão para permitir atualizações do Air Printer", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivityForResult(intent, REQ_INSTALL_PERMISSION)
+                return false
+            }
+        }
+        return true
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_INSTALL_PERMISSION) {
+            val btnCheckUpdate = findViewById<Button>(R.id.btnCheckUpdate)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(this, "Permissão concedida! Iniciando download...", Toast.LENGTH_SHORT).show()
+                downloadAndInstallUpdate(btnCheckUpdate)
+            } else {
+                Toast.makeText(this, "Permissão de instalação não concedida.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Compara versões numéricas (ex: 2.9 vs 2.9.1)
+    private fun isRemoteVersionNewer(remote: String, local: String): Boolean {
+        val cleanRemote = remote.trim().removePrefix("v").removePrefix("V")
+        val cleanLocal = local.trim().removePrefix("v").removePrefix("V")
+        if (cleanRemote == cleanLocal) return false
+
+        val rParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
+        val lParts = cleanLocal.split(".").mapNotNull { it.toIntOrNull() }
+        val maxLen = maxOf(rParts.size, lParts.size)
+
+        for (i in 0 until maxLen) {
+            val r = rParts.getOrElse(i) { 0 }
+            val l = lParts.getOrElse(i) { 0 }
+            if (r > l) return true
+            if (r < l) return false
+        }
+        return false
     }
 
     private fun checkForUpdates(btn: Button, manualClick: Boolean) {
@@ -119,9 +171,8 @@ class SettingsActivity : AppCompatActivity() {
                     reader.close()
 
                     val json = JSONObject(jsonStr)
-                    val tagName = json.optString("tag_name", "").removePrefix("v")
+                    val tagName = json.optString("tag_name", "")
                     
-                    // Localiza o link direto do AirPrinter.apk nos assets da release
                     val assets = json.optJSONArray("assets")
                     var assetDownloadUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
                     if (assets != null) {
@@ -135,25 +186,23 @@ class SettingsActivity : AppCompatActivity() {
                     }
 
                     val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
-
-                    // Compara se a versão da release difere da instalada
-                    val isNew = tagName.isNotEmpty() && tagName != currentVersion
+                    val isNew = isRemoteVersionNewer(tagName, currentVersion)
 
                     runOnUiThread {
                         if (isNew) {
                             hasNewUpdate = true
                             downloadUrl = assetDownloadUrl
                             btn.text = "Nova Versão $tagName Disponível! (Instalar)"
-                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#1976D2")) // AZUL vibrante
+                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#1976D2")) // AZUL
                             btn.setTextColor(Color.WHITE)
                         } else {
                             hasNewUpdate = false
-                            downloadUrl = assetDownloadUrl
+                            downloadUrl = null
                             btn.text = "App Atualizado (v$currentVersion)"
-                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161")) // Cinza discreto
+                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161")) // CINZA
                             btn.setTextColor(Color.WHITE)
                             if (manualClick) {
-                                Toast.makeText(this, "Você já está na versão mais recente!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Você já está na versão mais recente (v$currentVersion)!", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -167,10 +216,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun fallbackUpdateStatus(btn: Button) {
+        val currentVersion = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (t: Throwable) { "" }
         runOnUiThread {
-            downloadUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
-            btn.text = "Baixar Último APK do GitHub"
-            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#455A64"))
+            btn.text = "App Atualizado (v$currentVersion)"
+            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161"))
         }
     }
 
@@ -189,6 +238,8 @@ class SettingsActivity : AppCompatActivity() {
                 conn.readTimeout = 15000
 
                 val apkFile = File(externalCacheDir ?: cacheDir, "AirPrinter-update.apk")
+                if (apkFile.exists()) apkFile.delete()
+
                 val inStream = conn.inputStream
                 val outStream = FileOutputStream(apkFile)
 
@@ -203,7 +254,7 @@ class SettingsActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     btn.isEnabled = true
-                    btn.text = "Instalando..."
+                    btn.text = "Abrindo instalador..."
                     installApk(apkFile)
                 }
             } catch (e: Throwable) {
@@ -301,14 +352,9 @@ class SettingsActivity : AppCompatActivity() {
 
                 out = socket?.outputStream ?: throw IllegalStateException("Fluxo indisponível")
 
-                // Reset inicial ESC @
                 out.write(byteArrayOf(0x1B, 0x40))
-
-                // Teste UTF-8 Comprovado
                 out.write("1. UTF-8 Nativo:\n".toByteArray(Charsets.UTF_8))
                 out.write("diâmetro ação Não avô\nInformações do pedido: OK\n\n".toByteArray(Charsets.UTF_8))
-
-                // Padrão de 2 linhas de corte
                 out.write(byteArrayOf(0x0A, 0x0A))
                 out.flush()
                 Thread.sleep(200)

@@ -21,9 +21,12 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Gerar Keystore Fixa de Build
+    # Se release.jks já estiver commitado, usa ele; senão usa chave fixa base64 segura
+    - name: Restaurar ou Criar Keystore Estável
       run: |
-        keytool -genkey -v -keystore app/release.jks -alias airprinter -keyalg RSA -keysize 2048 -validity 10000 -storepass airprinter123 -keypass airprinter123 -dname "CN=AirPrinter, OU=Dev, O=AirPrinter, L=VilaVelha, ST=ES, C=BR"
+        if [ ! -f app/release.jks ]; then
+          keytool -genkeypair -v -keystore app/release.jks -alias airprinter -keyalg RSA -keysize 2048 -validity 10000 -storepass airprinter123 -keypass airprinter123 -dname "CN=AirPrinter, OU=Dev, O=AirPrinter, L=VilaVelha, ST=ES, C=BR"
+        fi
 
     - name: Dar permissão de execução ao gradlew
       run: chmod +x gradlew
@@ -38,10 +41,10 @@ jobs:
     - name: Criar Release no GitHub
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v2.9
-        name: Air Printer v2.9
+        tag_name: v2.9.1
+        name: Air Printer v2.9.1
         body: |
-          Versão v2.9 com UTF-8 nativo validado e assinatura fixa unificada.
+          Versão v2.9.1 com comparador semântico de versão e solicitação antecipada de permissão de instalação.
         files: AirPrinter.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

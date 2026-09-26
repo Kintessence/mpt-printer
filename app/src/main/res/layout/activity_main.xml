@@ -17,7 +17,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Air Printer v2.9 (MPT-II)"
+            android:text="Air Printer v2.9.1 (MPT-II)"
             android:textStyle="bold"
             android:textSize="18sp"
             android:textColor="#212121" />
