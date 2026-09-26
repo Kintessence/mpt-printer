@@ -8,6 +8,8 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,18 +21,22 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import org.json.JSONObject
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStreamReader
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.charset.Charset
 import java.util.UUID
 
 class SettingsActivity : AppCompatActivity() {
 
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val REQ_BT_PERMISSION = 102
+    private var hasNewUpdate = false
+    private var downloadUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,15 +57,14 @@ class SettingsActivity : AppCompatActivity() {
 
         val cpOptions = arrayOf(
             "UTF-8 Nativo (Padrao MPT-II GZP)",
-            "Sanitizado (Sem acentos - Seguro)",
-            "PC860 Portugues Nativo",
-            "WPC1252 / Windows-1252"
+            "Sanitizado (Sem acentos - Seguro)"
         )
         val cpAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, cpOptions)
         spCodePage.adapter = cpAdapter
 
         cbDirectPrint.isChecked = prefs.getBoolean("direct_print", false)
-        val savedFeed = prefs.getInt("feed_lines", 4)
+
+        val savedFeed = prefs.getInt("feed_lines", 2)
         val feedIndex = feedOptions.indexOfFirst { it.startsWith(savedFeed.toString()) }
         if (feedIndex >= 0) spFeedLines.setSelection(feedIndex)
 
@@ -70,7 +75,7 @@ class SettingsActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             val selectedFeedStr = spFeedLines.selectedItem.toString().substringBefore(" ")
-            val feedCount = selectedFeedStr.toIntOrNull() ?: 4
+            val feedCount = selectedFeedStr.toIntOrNull() ?: 2
 
             prefs.edit()
                 .putBoolean("direct_print", cbDirectPrint.isChecked)
@@ -87,17 +92,97 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnCheckUpdate.setOnClickListener {
-            downloadAndInstallUpdate()
+            if (hasNewUpdate || downloadUrl != null) {
+                downloadAndInstallUpdate(btnCheckUpdate)
+            } else {
+                checkForUpdates(btnCheckUpdate, manualClick = true)
+            }
+        }
+
+        // Checagem automática ao abrir a tela
+        checkForUpdates(btnCheckUpdate, manualClick = false)
+    }
+
+    private fun checkForUpdates(btn: Button, manualClick: Boolean) {
+        btn.text = "Buscando atualizações..."
+        Thread {
+            try {
+                val apiUrl = URL("https://api.github.com/repos/Kintessence/mpt-printer/releases/latest")
+                val conn = apiUrl.openConnection() as HttpURLConnection
+                conn.setRequestProperty("User-Agent", "AirPrinterApp")
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+
+                if (conn.responseCode in 200..299) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
+                    val jsonStr = reader.readText()
+                    reader.close()
+
+                    val json = JSONObject(jsonStr)
+                    val tagName = json.optString("tag_name", "").removePrefix("v")
+                    
+                    // Localiza o link direto do AirPrinter.apk nos assets da release
+                    val assets = json.optJSONArray("assets")
+                    var assetDownloadUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.getJSONObject(i)
+                            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
+                                assetDownloadUrl = asset.optString("browser_download_url", assetDownloadUrl)
+                                break
+                            }
+                        }
+                    }
+
+                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
+
+                    // Compara se a versão da release difere da instalada
+                    val isNew = tagName.isNotEmpty() && tagName != currentVersion
+
+                    runOnUiThread {
+                        if (isNew) {
+                            hasNewUpdate = true
+                            downloadUrl = assetDownloadUrl
+                            btn.text = "Nova Versão $tagName Disponível! (Instalar)"
+                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#1976D2")) // AZUL vibrante
+                            btn.setTextColor(Color.WHITE)
+                        } else {
+                            hasNewUpdate = false
+                            downloadUrl = assetDownloadUrl
+                            btn.text = "App Atualizado (v$currentVersion)"
+                            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161")) // Cinza discreto
+                            btn.setTextColor(Color.WHITE)
+                            if (manualClick) {
+                                Toast.makeText(this, "Você já está na versão mais recente!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } else {
+                    fallbackUpdateStatus(btn)
+                }
+            } catch (e: Throwable) {
+                fallbackUpdateStatus(btn)
+            }
+        }.start()
+    }
+
+    private fun fallbackUpdateStatus(btn: Button) {
+        runOnUiThread {
+            downloadUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
+            btn.text = "Baixar Último APK do GitHub"
+            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#455A64"))
         }
     }
 
-    private fun downloadAndInstallUpdate() {
-        Toast.makeText(this, "Baixando atualização do Air Printer...", Toast.LENGTH_SHORT).show()
+    private fun downloadAndInstallUpdate(btn: Button) {
+        val targetUrl = downloadUrl ?: "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
+        btn.isEnabled = false
+        btn.text = "Baixando atualização..."
+        Toast.makeText(this, "Baixando novo APK...", Toast.LENGTH_SHORT).show()
+
         Thread {
             try {
-                // Link direto do asset da release mais recente do GitHub
-                val updateUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
-                val url = URL(updateUrl)
+                val url = URL(targetUrl)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.instanceFollowRedirects = true
                 conn.connectTimeout = 15000
@@ -117,10 +202,14 @@ class SettingsActivity : AppCompatActivity() {
                 inStream.close()
 
                 runOnUiThread {
+                    btn.isEnabled = true
+                    btn.text = "Instalando..."
                     installApk(apkFile)
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
+                    btn.isEnabled = true
+                    btn.text = "Erro no download. Tentar novamente"
                     Toast.makeText(this, "Erro no download: " + e.message, Toast.LENGTH_LONG).show()
                 }
             }
@@ -193,7 +282,7 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
 
-        Toast.makeText(this, "Imprimindo teste de diagnóstico...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Imprimindo teste UTF-8...", Toast.LENGTH_SHORT).show()
 
         Thread {
             var socket: BluetoothSocket? = null
@@ -212,17 +301,15 @@ class SettingsActivity : AppCompatActivity() {
 
                 out = socket?.outputStream ?: throw IllegalStateException("Fluxo indisponível")
 
+                // Reset inicial ESC @
                 out.write(byteArrayOf(0x1B, 0x40))
 
-                // Teste UTF-8
+                // Teste UTF-8 Comprovado
                 out.write("1. UTF-8 Nativo:\n".toByteArray(Charsets.UTF_8))
                 out.write("diâmetro ação Não avô\nInformações do pedido: OK\n\n".toByteArray(Charsets.UTF_8))
 
-                // Teste Sanitizado
-                out.write("2. Sanitizado:\n".toByteArray(Charsets.US_ASCII))
-                out.write("diametro acao Nao avo\n\n".toByteArray(Charsets.US_ASCII))
-
-                out.write(byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A))
+                // Padrão de 2 linhas de corte
+                out.write(byteArrayOf(0x0A, 0x0A))
                 out.flush()
                 Thread.sleep(200)
 

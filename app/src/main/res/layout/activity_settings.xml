@@ -1,70 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="20dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Configurações de Impressão"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="24dp" />
-
-    <CheckBox
-        android:id="@+id/cbDirectPrint"
+    <!-- Conteúdo com rolagem para caber perfeitamente em qualquer tela -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Imprimir direto ao compartilhar (Sem tela)"
-        android:textSize="16sp"
-        android:layout_marginBottom="16dp" />
+        android:layout_height="match_parent"
+        android:layout_above="@id/btnSaveSettings"
+        android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Linhas de corte após impressão:"
-        android:textSize="15sp"
-        android:layout_marginBottom="8dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
-    <Spinner
-        android:id="@+id/spFeedLines"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Configurações de Impressão"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="24dp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tabela de Caracteres / Acentos:"
-        android:textSize="15sp"
-        android:layout_marginBottom="8dp" />
+            <CheckBox
+                android:id="@+id/cbDirectPrint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Imprimir direto ao compartilhar (Sem tela)"
+                android:textSize="16sp"
+                android:layout_marginBottom="16dp" />
 
-    <Spinner
-        android:id="@+id/spCodePage"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Linhas de corte após impressão:"
+                android:textSize="15sp"
+                android:layout_marginBottom="8dp" />
 
-    <Button
-        android:id="@+id/btnTestPrint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Imprimir Teste UTF-8"
-        android:layout_marginBottom="12dp" />
+            <Spinner
+                android:id="@+id/spFeedLines"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp" />
 
-    <Button
-        android:id="@+id/btnCheckUpdate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Baixar e Atualizar APK"
-        android:layout_marginBottom="24dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tabela de Caracteres / Acentos:"
+                android:textSize="15sp"
+                android:layout_marginBottom="8dp" />
 
+            <Spinner
+                android:id="@+id/spCodePage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp" />
+
+            <Button
+                android:id="@+id/btnTestPrint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Imprimir Teste UTF-8"
+                android:layout_marginBottom="14dp" />
+
+            <!-- Botão inteligente de atualização -->
+            <Button
+                android:id="@+id/btnCheckUpdate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Verificando atualizações..."
+                android:backgroundTint="#757575"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="16dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Botão de salvar fixado estrategicamente na base da tela -->
     <Button
         android:id="@+id/btnSaveSettings"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:text="Salvar Configurações" />
 
-</LinearLayout>
+</RelativeLayout>
