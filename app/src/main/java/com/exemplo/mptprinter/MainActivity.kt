@@ -22,7 +22,6 @@ import java.io.InputStreamReader
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.charset.Charset
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
@@ -32,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSettings: Button
     private lateinit var tvStatus: TextView
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    private val REQ_BT_PRINT = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
         val isDirectPrint = prefs.getBoolean("direct_print", false)
         if (isDirectPrint && text.isNotBlank()) {
-            tvStatus.text = "Disparando impressao direta..."
+            tvStatus.text = "Disparando impressao direta (v2.9)..."
             checkPermissionsAndPrint()
         }
     }
@@ -157,7 +157,7 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     updateEditor(finalResult)
-                    tvStatus.text = "Recibo carregado!"
+                    tvStatus.text = "Recibo pronto para imprimir!"
                     checkAutoPrint(finalResult)
                 }
             } catch (e: Throwable) {
@@ -179,23 +179,22 @@ class MainActivity : AppCompatActivity() {
     private fun checkPermissionsAndPrint() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 101)
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQ_BT_PRINT)
                 return
             }
         }
         executePrint(etContent.text.toString())
     }
 
-    private fun sanitizeText(input: String): String {
-        return input.replace("ÃƒÂ£", "a").replace("ÃƒÆ’", "A")
-                    .replace("ÃƒÂµ", "o").replace("Ãƒâ€¢", "O")
-                    .replace("ÃƒÂ§", "c").replace("Ãƒâ€¡", "C")
-                    .replace("ÃƒÂ©", "e").replace("Ãƒâ€°", "E")
-                    .replace("ÃƒÂª", "e").replace("ÃƒÅ ", "E")
-                    .replace("ÃƒÂ¡", "a").replace("ÃƒÂ", "A")
-                    .replace("ÃƒÂ­", "i").replace("ÃƒÂ", "I")
-                    .replace("ÃƒÂ³", "o").replace("Ãƒâ€œ", "O")
-                    .replace("ÃƒÂº", "u").replace("ÃƒÅ¡", "U")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_BT_PRINT) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                executePrint(etContent.text.toString())
+            } else {
+                Toast.makeText(this, "Permissao necessaria para impressao.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun createConnectedSocket(device: BluetoothDevice): BluetoothSocket {
@@ -248,11 +247,10 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            tvStatus.text = "Conectando a " + printerDevice.name + "..."
+            tvStatus.text = "Imprimindo via UTF-8 Nativo (v2.9)..."
 
             val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
-            val feedLinesCount = prefs.getInt("feed_lines", 4)
-            val cpChoice = prefs.getInt("codepage_index", 0)
+            val feedLinesCount = prefs.getInt("feed_lines", 2) // Padrão: 2 linhas
 
             Thread {
                 var socket: BluetoothSocket? = null
@@ -265,40 +263,14 @@ class MainActivity : AppCompatActivity() {
                     socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
-                    val ESC_INIT = byteArrayOf(0x1B, 0x40)
-                    outStream.write(ESC_INIT)
+                    // ESC @ (Reset inicial)
+                    outStream.write(byteArrayOf(0x1B, 0x40))
 
-                    val textBytes: ByteArray
-                    when (cpChoice) {
-                        0 -> {
-                            // WPC1252 / Windows-1252 (Codepage 16 na firmware MPT-II)
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x10))
-                            textBytes = rawText.toByteArray(Charset.forName("windows-1252"))
-                        }
-                        1 -> {
-                            // CP850
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x02))
-                            textBytes = rawText.toByteArray(Charset.forName("CP850"))
-                        }
-                        2 -> {
-                            // CP860
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x03))
-                            textBytes = rawText.toByteArray(Charset.forName("CP860"))
-                        }
-                        3 -> {
-                            // ISO-8859-1 (Codepage 17)
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x11))
-                            textBytes = rawText.toByteArray(Charset.forName("ISO-8859-1"))
-                        }
-                        else -> {
-                            // Sanitizado
-                            outStream.write(byteArrayOf(0x1B, 0x74, 0x00))
-                            textBytes = sanitizeText(rawText).toByteArray(Charset.forName("US-ASCII"))
-                        }
-                    }
-
+                    // ENVIA EXATAMENTE EM UTF-8 PURO (IDENTICO AO TESTE DE DIAGNOSTICO QUE FUNCIONOU)
+                    val textBytes = rawText.toByteArray(Charsets.UTF_8)
                     outStream.write(textBytes)
 
+                    // Linhas de corte (2 linhas)
                     val feedBytes = ByteArray(feedLinesCount) { 0x0A }
                     outStream.write(feedBytes)
                     outStream.flush()
@@ -306,7 +278,7 @@ class MainActivity : AppCompatActivity() {
                     Thread.sleep(200)
 
                     runOnUiThread {
-                        tvStatus.text = "Impressao concluida!"
+                        tvStatus.text = "Impressao v2.9 concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
