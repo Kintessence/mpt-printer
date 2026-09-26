@@ -3,66 +3,68 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#FFFFFF">
+    android:padding="20dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Configurações de Impressão"
-        android:textStyle="bold"
         android:textSize="20sp"
-        android:textColor="#212121"
-        android:layout_marginBottom="20dp" />
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
 
     <CheckBox
         android:id="@+id/cbDirectPrint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Imprimir direto ao compartilhar"
-        android:textColor="#212121"
-        android:textSize="15sp"
+        android:text="Imprimir direto ao compartilhar (Sem tela)"
+        android:textSize="16sp"
         android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Linhas de corte (avanço final):"
-        android:textColor="#333333"
-        android:textSize="14sp" />
+        android:text="Linhas de corte após impressão:"
+        android:textSize="15sp"
+        android:layout_marginBottom="8dp" />
 
     <Spinner
         android:id="@+id/spFeedLines"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="16dp" />
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Tabela de Caracteres / Acentos:"
-        android:textColor="#333333"
-        android:textSize="14sp" />
+        android:textSize="15sp"
+        android:layout_marginBottom="8dp" />
 
     <Spinner
         android:id="@+id/spCodePage"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="20dp" />
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp" />
 
     <Button
         android:id="@+id/btnTestPrint"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="Imprimir Teste de Acentos"
-        android:backgroundTint="#607D8B"
+        android:layout_height="wrap_content"
+        android:text="Imprimir Teste UTF-8"
         android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnCheckUpdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Baixar e Atualizar APK"
+        android:layout_marginBottom="24dp" />
 
     <Button
         android:id="@+id/btnSaveSettings"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="wrap_content"
         android:text="Salvar Configurações" />
+
 </LinearLayout>
