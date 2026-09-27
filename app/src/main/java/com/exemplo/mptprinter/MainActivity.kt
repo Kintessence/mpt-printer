@@ -8,16 +8,23 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.FileProvider
+import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
 import java.net.HttpURLConnection
@@ -32,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val REQ_BT_PRINT = 101
+    private val REQ_INSTALL_MAIN = 104
+    private var pendingDownloadUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +61,10 @@ class MainActivity : AppCompatActivity() {
             }
 
             handleIncomingIntent(intent)
+
+            // Checagem proativa em segundo plano ao abrir o app
+            checkForAppUpdateProactively()
+
         } catch (e: Throwable) {
             Log.e("AirPrinter", "Erro no onCreate", e)
             Toast.makeText(this, "Erro ao iniciar: " + e.message, Toast.LENGTH_LONG).show()
@@ -86,8 +99,9 @@ class MainActivity : AppCompatActivity() {
                 if (match != null) {
                     fetchWebReceipt(match.value)
                 } else {
-                    updateEditor(incomingText)
-                    checkAutoPrint(incomingText)
+                    val formatted = formatTextForThermal58mm(incomingText)
+                    updateEditor(formatted)
+                    checkAutoPrint(formatted)
                 }
             }
         } catch (e: Throwable) {
@@ -99,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
         val isDirectPrint = prefs.getBoolean("direct_print", false)
         if (isDirectPrint && text.isNotBlank()) {
-            tvStatus.text = "Disparando impressao direta (v2.9)..."
+            tvStatus.text = "Disparando impressao direta..."
             checkPermissionsAndPrint()
         }
     }
@@ -111,6 +125,47 @@ class MainActivity : AppCompatActivity() {
                     .replace("&quot;", "\"")
                     .replace("&#39;", "'")
                     .replace("&nbsp;", " ")
+    }
+
+    private fun formatTextForThermal58mm(input: String, maxColumns: Int = 32): String {
+        val sb = StringBuilder()
+        val originalLines = input.lines()
+
+        for (line in originalLines) {
+            val trimmed = line.trimEnd()
+
+            if (trimmed.matches(Regex("^-{3,}$"))) {
+                sb.append("-".repeat(maxColumns)).append("\n")
+                continue
+            }
+
+            if (trimmed.length <= maxColumns) {
+                sb.append(trimmed).append("\n")
+                continue
+            }
+
+            val words = trimmed.split(" ")
+            var currentLine = StringBuilder()
+
+            for (word in words) {
+                if (word.isEmpty()) continue
+
+                if (currentLine.isEmpty()) {
+                    currentLine.append(word)
+                } else if (currentLine.length + 1 + word.length <= maxColumns) {
+                    currentLine.append(" ").append(word)
+                } else {
+                    sb.append(currentLine.toString()).append("\n")
+                    currentLine = StringBuilder(word)
+                }
+            }
+
+            if (currentLine.isNotEmpty()) {
+                sb.append(currentLine.toString()).append("\n")
+            }
+        }
+
+        return sb.toString().trimEnd()
     }
 
     private fun fetchWebReceipt(urlStr: String) {
@@ -137,10 +192,10 @@ class MainActivity : AppCompatActivity() {
 
                 val rawHtml = sb.toString()
                 val preMatch = Regex("(?is)<pre[^>]*>(.*?)</pre>").find(rawHtml)
-                val finalResult: String
+                val extractedText: String
 
                 if (preMatch != null) {
-                    finalResult = decodeHtmlEntities(preMatch.groupValues[1]).trim()
+                    extractedText = decodeHtmlEntities(preMatch.groupValues[1]).trim()
                 } else {
                     var clean = rawHtml.replace(Regex("(?is)<script.*?</script>"), "")
                                        .replace(Regex("(?is)<style.*?</style>"), "")
@@ -152,13 +207,15 @@ class MainActivity : AppCompatActivity() {
                                        .replace(Regex("(?i)</td>"), "  ")
 
                     val textOnly = clean.replace(Regex("<[^>]+>"), "")
-                    finalResult = decodeHtmlEntities(textOnly).trim()
+                    extractedText = decodeHtmlEntities(textOnly).trim()
                 }
 
+                val finalFormatted = formatTextForThermal58mm(extractedText)
+
                 runOnUiThread {
-                    updateEditor(finalResult)
+                    updateEditor(finalFormatted)
                     tvStatus.text = "Recibo pronto para imprimir!"
-                    checkAutoPrint(finalResult)
+                    checkAutoPrint(finalFormatted)
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
@@ -174,6 +231,145 @@ class MainActivity : AppCompatActivity() {
         if (text.isNotEmpty()) {
             etContent.setSelection(text.length)
         }
+    }
+
+    // --- Checagem Ativa de Atualização com Sugestão Automática ---
+    private fun checkForAppUpdateProactively() {
+        Thread {
+            try {
+                val apiUrl = URL("https://api.github.com/repos/Kintessence/mpt-printer/releases/latest")
+                val conn = apiUrl.openConnection() as HttpURLConnection
+                conn.setRequestProperty("User-Agent", "AirPrinterApp")
+                conn.connectTimeout = 6000
+                conn.readTimeout = 6000
+
+                if (conn.responseCode in 200..299) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
+                    val jsonStr = reader.readText()
+                    reader.close()
+
+                    val json = JSONObject(jsonStr)
+                    val tagName = json.optString("tag_name", "")
+                    val assets = json.optJSONArray("assets")
+                    var assetDownloadUrl = "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.getJSONObject(i)
+                            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
+                                assetDownloadUrl = asset.optString("browser_download_url", assetDownloadUrl)
+                                break
+                            }
+                        }
+                    }
+
+                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
+
+                    if (isNewerVersion(tagName, currentVersion)) {
+                        pendingDownloadUrl = assetDownloadUrl
+                        runOnUiThread {
+                            showUpdatePromptDialog(tagName)
+                        }
+                    }
+                }
+            } catch (ignored: Throwable) {}
+        }.start()
+    }
+
+    private fun isNewerVersion(remote: String, local: String): Boolean {
+        val cleanRemote = remote.trim().removePrefix("v").removePrefix("V")
+        val cleanLocal = local.trim().removePrefix("v").removePrefix("V")
+        if (cleanRemote.equals(cleanLocal, ignoreCase = true)) return false
+
+        val rParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
+        val lParts = cleanLocal.split(".").mapNotNull { it.toIntOrNull() }
+        val maxLen = maxOf(rParts.size, lParts.size)
+
+        for (i in 0 until maxLen) {
+            val r = rParts.getOrElse(i) { 0 }
+            val l = lParts.getOrElse(i) { 0 }
+            if (r > l) return true
+            if (r < l) return false
+        }
+        return false
+    }
+
+    private fun showUpdatePromptDialog(newVersion: String) {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle("Atualização Disponível")
+            .setMessage("Uma versão mais recente do Air Printer ($newVersion) foi encontrada no GitHub.\n\nDeseja atualizar agora?")
+            .setPositiveButton("Atualizar Agora") { _, _ ->
+                if (checkInstallPermission()) {
+                    startDownloadUpdate()
+                }
+            }
+            .setNegativeButton("Mais Tarde", null)
+            .show()
+    }
+
+    private fun checkInstallPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(this, "Ative a permissão para permitir atualizar o app", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivityForResult(intent, REQ_INSTALL_MAIN)
+                return false
+            }
+        }
+        return true
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_INSTALL_MAIN) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
+                startDownloadUpdate()
+            }
+        }
+    }
+
+    private fun startDownloadUpdate() {
+        val targetUrl = pendingDownloadUrl ?: "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
+        Toast.makeText(this, "Baixando atualização...", Toast.LENGTH_SHORT).show()
+        Thread {
+            try {
+                val url = URL(targetUrl)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.instanceFollowRedirects = true
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+
+                val apkFile = File(externalCacheDir ?: cacheDir, "AirPrinter-update.apk")
+                if (apkFile.exists()) apkFile.delete()
+
+                val inStream = conn.inputStream
+                val outStream = FileOutputStream(apkFile)
+
+                val buffer = ByteArray(4096)
+                var bytesRead: Int
+                while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                    outStream.write(buffer, 0, bytesRead)
+                }
+                outStream.flush()
+                outStream.close()
+                inStream.close()
+
+                runOnUiThread {
+                    val apkUri: Uri = FileProvider.getUriForFile(this, "com.exemplo.mptprinter.provider", apkFile)
+                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(apkUri, "application/vnd.android.package-archive")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    startActivity(installIntent)
+                }
+            } catch (e: Throwable) {
+                runOnUiThread {
+                    Toast.makeText(this, "Erro ao baixar atualização: " + e.message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     private fun checkPermissionsAndPrint() {
@@ -247,10 +443,10 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            tvStatus.text = "Imprimindo via UTF-8 Nativo (v2.9)..."
+            tvStatus.text = "Imprimindo via UTF-8 Nativo..."
 
             val prefs = getSharedPreferences("air_printer_prefs", Context.MODE_PRIVATE)
-            val feedLinesCount = prefs.getInt("feed_lines", 2) // Padrão: 2 linhas
+            val feedLinesCount = prefs.getInt("feed_lines", 2)
 
             Thread {
                 var socket: BluetoothSocket? = null
@@ -263,14 +459,12 @@ class MainActivity : AppCompatActivity() {
                     socket = createConnectedSocket(printerDevice)
                     outStream = socket.outputStream
 
-                    // ESC @ (Reset inicial)
                     outStream.write(byteArrayOf(0x1B, 0x40))
 
-                    // ENVIA EXATAMENTE EM UTF-8 PURO (IDENTICO AO TESTE DE DIAGNOSTICO QUE FUNCIONOU)
-                    val textBytes = rawText.toByteArray(Charsets.UTF_8)
+                    val formattedText = formatTextForThermal58mm(rawText)
+                    val textBytes = formattedText.toByteArray(Charsets.UTF_8)
                     outStream.write(textBytes)
 
-                    // Linhas de corte (2 linhas)
                     val feedBytes = ByteArray(feedLinesCount) { 0x0A }
                     outStream.write(feedBytes)
                     outStream.flush()
@@ -278,7 +472,7 @@ class MainActivity : AppCompatActivity() {
                     Thread.sleep(200)
 
                     runOnUiThread {
-                        tvStatus.text = "Impressao v2.9 concluida!"
+                        tvStatus.text = "Impressao concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {

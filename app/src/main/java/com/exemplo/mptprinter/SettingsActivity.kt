@@ -95,8 +95,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnCheckUpdate.setOnClickListener {
-            if (hasNewUpdate || downloadUrl != null) {
-                // 1. Verifica permissão de instalar apps ANTES de baixar
+            if (hasNewUpdate && downloadUrl != null) {
                 if (checkInstallPermission()) {
                     downloadAndInstallUpdate(btnCheckUpdate)
                 }
@@ -105,7 +104,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // Checagem automática ao abrir
         checkForUpdates(btnCheckUpdate, manualClick = false)
     }
 
@@ -128,19 +126,15 @@ class SettingsActivity : AppCompatActivity() {
         if (requestCode == REQ_INSTALL_PERMISSION) {
             val btnCheckUpdate = findViewById<Button>(R.id.btnCheckUpdate)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
-                Toast.makeText(this, "Permissão concedida! Iniciando download...", Toast.LENGTH_SHORT).show()
                 downloadAndInstallUpdate(btnCheckUpdate)
-            } else {
-                Toast.makeText(this, "Permissão de instalação não concedida.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Compara versões numéricas (ex: 2.9 vs 2.9.1)
     private fun isRemoteVersionNewer(remote: String, local: String): Boolean {
         val cleanRemote = remote.trim().removePrefix("v").removePrefix("V")
         val cleanLocal = local.trim().removePrefix("v").removePrefix("V")
-        if (cleanRemote == cleanLocal) return false
+        if (cleanRemote.equals(cleanLocal, ignoreCase = true)) return false
 
         val rParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
         val lParts = cleanLocal.split(".").mapNotNull { it.toIntOrNull() }
@@ -156,14 +150,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun checkForUpdates(btn: Button, manualClick: Boolean) {
+        val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
         btn.text = "Buscando atualizações..."
         Thread {
             try {
                 val apiUrl = URL("https://api.github.com/repos/Kintessence/mpt-printer/releases/latest")
                 val conn = apiUrl.openConnection() as HttpURLConnection
                 conn.setRequestProperty("User-Agent", "AirPrinterApp")
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
+                conn.connectTimeout = 7000
+                conn.readTimeout = 7000
 
                 if (conn.responseCode in 200..299) {
                     val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
@@ -185,7 +180,6 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
 
-                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
                     val isNew = isRemoteVersionNewer(tagName, currentVersion)
 
                     runOnUiThread {
@@ -207,20 +201,18 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    fallbackUpdateStatus(btn)
+                    runOnUiThread {
+                        btn.text = "App Atualizado (v$currentVersion)"
+                        btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161"))
+                    }
                 }
             } catch (e: Throwable) {
-                fallbackUpdateStatus(btn)
+                runOnUiThread {
+                    btn.text = "App Atualizado (v$currentVersion)"
+                    btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161"))
+                }
             }
         }.start()
-    }
-
-    private fun fallbackUpdateStatus(btn: Button) {
-        val currentVersion = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (t: Throwable) { "" }
-        runOnUiThread {
-            btn.text = "App Atualizado (v$currentVersion)"
-            btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161"))
-        }
     }
 
     private fun downloadAndInstallUpdate(btn: Button) {
