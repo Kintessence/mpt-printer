@@ -1,62 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="16dp"
-    android:background="#F5F5F5">
+    android:background="#F0F2F5">
 
+    <!-- Cabeçalho com versão completa n.n.n e botão de configurações -->
     <LinearLayout
+        android:id="@+id/layoutHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_alignParentTop="true"
+        android:layout_marginBottom="12dp">
 
         <TextView
+            android:id="@+id/tvAppTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Air Printer v2.9.3 (MPT-II)"
-            android:textStyle="bold"
+            android:text="Air Printer v2.9.4 (MPT-II)"
             android:textSize="18sp"
+            android:textStyle="bold"
             android:textColor="#212121" />
 
         <Button
             android:id="@+id/btnSettings"
+            style="@style/Widget.AppCompat.Button.Colored"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Config"
+            android:layout_height="38dp"
+            android:text="CONFIG"
             android:textSize="12sp" />
     </LinearLayout>
 
-    <EditText
-        android:id="@+id/etContent"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="top|start"
-        android:hint="Cole ou compartilhe o texto aqui..."
-        android:textColorHint="#888888"
-        android:textColor="#000000"
-        android:background="#FFFFFF"
-        android:inputType="textMultiLine"
-        android:padding="12dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="12dp" />
-
-    <Button
-        android:id="@+id/btnPrint"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="Imprimir na MPT-II"
-        android:textSize="16sp" />
-
+    <!-- Indicador de régua de 32 colunas para conferência visual -->
     <TextView
-        android:id="@+id/tvStatus"
+        android:id="@+id/tvRulerNotice"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="#333333"
-        android:textAlignment="center" />
-</LinearLayout>
+        android:layout_below="@id/layoutHeader"
+        android:text="Visualizador da Bobina (32 colunas - Editável):"
+        android:textSize="12sp"
+        android:textColor="#616161"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Container do visualizador térmico tipo bobina de recibo -->
+    <FrameLayout
+        android:id="@+id/frameReceipt"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/tvRulerNotice"
+        android:layout_above="@id/layoutBottom"
+        android:background="#FFFFFF"
+        android:elevation="3dp"
+        android:padding="10dp"
+        android:layout_marginBottom="12dp">
+
+        <EditText
+            android:id="@+id/etContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@null"
+            android:gravity="top|start"
+            android:hint="O recibo aparecerá aqui para visualização e edição..."
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:lineSpacingMultiplier="1.15"
+            android:textColor="#1A1A1A"
+            android:scrollbars="vertical" />
+    </FrameLayout>
+
+    <!-- Rodapé com botão de impressão e status -->
+    <LinearLayout
+        android:id="@+id/layoutBottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_alignParentBottom="true">
+
+        <Button
+            android:id="@+id/btnPrint"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="IMPRIMIR NA MPT-II (58MM)"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Pronto para imprimir (v2.9.4)"
+            android:textColor="#555555"
+            android:textSize="12sp"
+            android:layout_marginTop="6dp" />
+    </LinearLayout>
+
+</RelativeLayout>

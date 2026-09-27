@@ -20,8 +20,8 @@ android {
         applicationId = "com.exemplo.mptprinter"
         minSdk = 23
         targetSdk = 34
-        versionCode = 29
-        versionName = "2.9.3"
+        versionCode = 30
+        versionName = "2.9.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
 
             handleIncomingIntent(intent)
 
-            // Checagem proativa em segundo plano ao abrir o app
+            // Checagem proativa ao abrir
             checkForAppUpdateProactively()
 
         } catch (e: Throwable) {
@@ -127,6 +127,10 @@ class MainActivity : AppCompatActivity() {
                     .replace("&nbsp;", " ")
     }
 
+    /**
+     * Formata o texto para caber exatamente em 32 colunas térmicas,
+     * permitindo que o usuário veja e edite antes de mandar imprimir.
+     */
     private fun formatTextForThermal58mm(input: String, maxColumns: Int = 32): String {
         val sb = StringBuilder()
         val originalLines = input.lines()
@@ -210,11 +214,12 @@ class MainActivity : AppCompatActivity() {
                     extractedText = decodeHtmlEntities(textOnly).trim()
                 }
 
+                // O texto que entra no editor já é formatado para 32 colunas
                 val finalFormatted = formatTextForThermal58mm(extractedText)
 
                 runOnUiThread {
                     updateEditor(finalFormatted)
-                    tvStatus.text = "Recibo pronto para imprimir!"
+                    tvStatus.text = "Recibo pronto no visualizador!"
                     checkAutoPrint(finalFormatted)
                 }
             } catch (e: Throwable) {
@@ -233,7 +238,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- Checagem Ativa de Atualização com Sugestão Automática ---
     private fun checkForAppUpdateProactively() {
         Thread {
             try {
@@ -262,7 +266,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
+                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
 
                     if (isNewerVersion(tagName, currentVersion)) {
                         pendingDownloadUrl = assetDownloadUrl
@@ -297,7 +301,7 @@ class MainActivity : AppCompatActivity() {
         if (isFinishing) return
         AlertDialog.Builder(this)
             .setTitle("Atualização Disponível")
-            .setMessage("Uma versão mais recente do Air Printer ($newVersion) foi encontrada no GitHub.\n\nDeseja atualizar agora?")
+            .setMessage("Nova versão $newVersion do Air Printer encontrada.\n\nDeseja atualizar agora?")
             .setPositiveButton("Atualizar Agora") { _, _ ->
                 if (checkInstallPermission()) {
                     startDownloadUpdate()
@@ -379,6 +383,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
+        // Imprime EXATAMENTE o texto atualmente visível e editado no editor
         executePrint(etContent.text.toString())
     }
 
@@ -461,8 +466,9 @@ class MainActivity : AppCompatActivity() {
 
                     outStream.write(byteArrayOf(0x1B, 0x40))
 
-                    val formattedText = formatTextForThermal58mm(rawText)
-                    val textBytes = formattedText.toByteArray(Charsets.UTF_8)
+                    // Re-formata para garantir que qualquer edição manual permaneça em 32 colunas
+                    val textToPrint = formatTextForThermal58mm(rawText)
+                    val textBytes = textToPrint.toByteArray(Charsets.UTF_8)
                     outStream.write(textBytes)
 
                     val feedBytes = ByteArray(feedLinesCount) { 0x0A }
@@ -472,7 +478,7 @@ class MainActivity : AppCompatActivity() {
                     Thread.sleep(200)
 
                     runOnUiThread {
-                        tvStatus.text = "Impressao concluida!"
+                        tvStatus.text = "Impressao v2.9.4 concluida!"
                         Toast.makeText(this, "Impresso com sucesso!", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Throwable) {
