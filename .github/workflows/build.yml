@@ -1,4 +1,4 @@
-name: Build and Release APK
+name: Build and Release APK & AAB
 
 on:
   push:
@@ -26,24 +26,28 @@ jobs:
       with:
         gradle-version: '8.6'
 
-    - name: Compilar APK Debug
-      run: gradle assembleDebug
-
-    - name: Renomear APK para distribuição
+    - name: Compilar APK Github e Bundle PlayStore
       run: |
-        cp app/build/outputs/apk/debug/app-debug.apk AirPrinter.apk
+        gradle assembleGithubDebug
+        gradle bundlePlaystoreRelease
+
+    - name: Preparar Artefatos
+      run: |
+        cp app/build/outputs/apk/github/debug/app-github-debug.apk AirPrinter.apk
+        cp app/build/outputs/bundle/playstoreRelease/app-playstore-release.aab AirPrinter-playstore.aab
 
     - name: Publicar Release Oficial no GitHub
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v2.9.4
-        name: Air Printer v2.9.4
+        tag_name: v2.9.5
+        name: Air Printer v2.9.5
         make_latest: true
         body: |
-          Versão v2.9.4 oficial:
-          - Visualizador térmico monoespaçado de 32 colunas editável
-          - Envio nativo em UTF-8 puro validado
-          - Alinhamento do pipeline de compilação contínua
-        files: AirPrinter.apk
+          Versão v2.9.5:
+          - AirPrinter.apk (distribuição direta com auto-update)
+          - AirPrinter-playstore.aab (pacote homologado para a Google Play Store)
+        files: |
+          AirPrinter.apk
+          AirPrinter-playstore.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

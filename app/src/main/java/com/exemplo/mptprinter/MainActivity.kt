@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
             handleIncomingIntent(intent)
 
             // Checagem proativa ao abrir
-            checkForAppUpdateProactively()
+            if (BuildConfig.ENABLE_INAPP_UPDATE) { checkForAppUpdateProactively() }
 
         } catch (e: Throwable) {
             Log.e("AirPrinter", "Erro no onCreate", e)
@@ -128,8 +128,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Formata o texto para caber exatamente em 32 colunas térmicas,
-     * permitindo que o usuário veja e edite antes de mandar imprimir.
+     * Formata o texto para caber exatamente em 32 colunas tÃ©rmicas,
+     * permitindo que o usuÃ¡rio veja e edite antes de mandar imprimir.
      */
     private fun formatTextForThermal58mm(input: String, maxColumns: Int = 32): String {
         val sb = StringBuilder()
@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity() {
                     extractedText = decodeHtmlEntities(textOnly).trim()
                 }
 
-                // O texto que entra no editor já é formatado para 32 colunas
+                // O texto que entra no editor jÃ¡ Ã© formatado para 32 colunas
                 val finalFormatted = formatTextForThermal58mm(extractedText)
 
                 runOnUiThread {
@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkForAppUpdateProactively() {
+    private fun if (BuildConfig.ENABLE_INAPP_UPDATE) { checkForAppUpdateProactively() } {
         Thread {
             try {
                 val apiUrl = URL("https://api.github.com/repos/Kintessence/mpt-printer/releases/latest")
@@ -300,8 +300,8 @@ class MainActivity : AppCompatActivity() {
     private fun showUpdatePromptDialog(newVersion: String) {
         if (isFinishing) return
         AlertDialog.Builder(this)
-            .setTitle("Atualização Disponível")
-            .setMessage("Nova versão $newVersion do Air Printer encontrada.\n\nDeseja atualizar agora?")
+            .setTitle("AtualizaÃ§Ã£o DisponÃ­vel")
+            .setMessage("Nova versÃ£o $newVersion do Air Printer encontrada.\n\nDeseja atualizar agora?")
             .setPositiveButton("Atualizar Agora") { _, _ ->
                 if (checkInstallPermission()) {
                     startDownloadUpdate()
@@ -314,7 +314,7 @@ class MainActivity : AppCompatActivity() {
     private fun checkInstallPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!packageManager.canRequestPackageInstalls()) {
-                Toast.makeText(this, "Ative a permissão para permitir atualizar o app", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Ative a permissÃ£o para permitir atualizar o app", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = Uri.parse("package:$packageName")
                 }
@@ -336,7 +336,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startDownloadUpdate() {
         val targetUrl = pendingDownloadUrl ?: "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
-        Toast.makeText(this, "Baixando atualização...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Baixando atualizaÃ§Ã£o...", Toast.LENGTH_SHORT).show()
         Thread {
             try {
                 val url = URL(targetUrl)
@@ -370,7 +370,7 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Throwable) {
                 runOnUiThread {
-                    Toast.makeText(this, "Erro ao baixar atualização: " + e.message, Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Erro ao baixar atualizaÃ§Ã£o: " + e.message, Toast.LENGTH_LONG).show()
                 }
             }
         }.start()
@@ -383,7 +383,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
-        // Imprime EXATAMENTE o texto atualmente visível e editado no editor
+        // Imprime EXATAMENTE o texto atualmente visÃ­vel e editado no editor
         executePrint(etContent.text.toString())
     }
 
@@ -466,7 +466,7 @@ class MainActivity : AppCompatActivity() {
 
                     outStream.write(byteArrayOf(0x1B, 0x40))
 
-                    // Re-formata para garantir que qualquer edição manual permaneça em 32 colunas
+                    // Re-formata para garantir que qualquer ediÃ§Ã£o manual permaneÃ§a em 32 colunas
                     val textToPrint = formatTextForThermal58mm(rawText)
                     val textBytes = textToPrint.toByteArray(Charsets.UTF_8)
                     outStream.write(textBytes)

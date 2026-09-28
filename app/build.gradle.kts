@@ -11,10 +11,26 @@ android {
         applicationId = "com.exemplo.mptprinter"
         minSdk = 23
         targetSdk = 34
-        versionCode = 30
-        versionName = "2.9.4"
+        versionCode = 31
+        versionName = "2.9.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "ENABLE_INAPP_UPDATE", "true")
+        }
+        create("playstore") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "ENABLE_INAPP_UPDATE", "false")
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

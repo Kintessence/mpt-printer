@@ -86,7 +86,7 @@ class SettingsActivity : AppCompatActivity() {
                 .putInt("codepage_index", spCodePage.selectedItemPosition)
                 .apply()
 
-            Toast.makeText(this, "Configurações salvas!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "ConfiguraÃ§Ãµes salvas!", Toast.LENGTH_SHORT).show()
             finish()
         }
 
@@ -110,7 +110,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun checkInstallPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!packageManager.canRequestPackageInstalls()) {
-                Toast.makeText(this, "Ative a permissão para permitir atualizações do Air Printer", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Ative a permissÃ£o para permitir atualizaÃ§Ãµes do Air Printer", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = Uri.parse("package:$packageName")
                 }
@@ -151,7 +151,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun checkForUpdates(btn: Button, manualClick: Boolean) {
         val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0"
-        btn.text = "Buscando atualizações..."
+        btn.text = "Buscando atualizaÃ§Ãµes..."
         Thread {
             try {
                 val apiUrl = URL("https://api.github.com/repos/Kintessence/mpt-printer/releases/latest")
@@ -186,7 +186,7 @@ class SettingsActivity : AppCompatActivity() {
                         if (isNew) {
                             hasNewUpdate = true
                             downloadUrl = assetDownloadUrl
-                            btn.text = "Nova Versão $tagName Disponível! (Instalar)"
+                            btn.text = "Nova VersÃ£o $tagName DisponÃ­vel! (Instalar)"
                             btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#1976D2")) // AZUL
                             btn.setTextColor(Color.WHITE)
                         } else {
@@ -196,7 +196,7 @@ class SettingsActivity : AppCompatActivity() {
                             btn.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#616161")) // CINZA
                             btn.setTextColor(Color.WHITE)
                             if (manualClick) {
-                                Toast.makeText(this, "Você já está na versão mais recente (v$currentVersion)!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "VocÃª jÃ¡ estÃ¡ na versÃ£o mais recente (v$currentVersion)!", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -218,7 +218,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun downloadAndInstallUpdate(btn: Button) {
         val targetUrl = downloadUrl ?: "https://github.com/Kintessence/mpt-printer/releases/latest/download/AirPrinter.apk"
         btn.isEnabled = false
-        btn.text = "Baixando atualização..."
+        btn.text = "Baixando atualizaÃ§Ã£o..."
         Toast.makeText(this, "Baixando novo APK...", Toast.LENGTH_SHORT).show()
 
         Thread {
@@ -297,7 +297,7 @@ class SettingsActivity : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 runCharacterDiagnostics()
             } else {
-                Toast.makeText(this, "Permissão necessária para conexão Bluetooth.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "PermissÃ£o necessÃ¡ria para conexÃ£o Bluetooth.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -321,7 +321,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         if (printer == null) {
-            Toast.makeText(this, "MPT-II não encontrada nos pareados.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "MPT-II nÃ£o encontrada nos pareados.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -342,11 +342,11 @@ class SettingsActivity : AppCompatActivity() {
                     s
                 }
 
-                out = socket?.outputStream ?: throw IllegalStateException("Fluxo indisponível")
+                out = socket?.outputStream ?: throw IllegalStateException("Fluxo indisponÃ­vel")
 
                 out.write(byteArrayOf(0x1B, 0x40))
                 out.write("1. UTF-8 Nativo:\n".toByteArray(Charsets.UTF_8))
-                out.write("diâmetro ação Não avô\nInformações do pedido: OK\n\n".toByteArray(Charsets.UTF_8))
+                out.write("diÃ¢metro aÃ§Ã£o NÃ£o avÃ´\nInformaÃ§Ãµes do pedido: OK\n\n".toByteArray(Charsets.UTF_8))
                 out.write(byteArrayOf(0x0A, 0x0A))
                 out.flush()
                 Thread.sleep(200)
