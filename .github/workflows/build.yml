@@ -21,11 +21,13 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Dar permissão de execução ao gradlew
-      run: chmod +x gradlew
+    - name: Configurar Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.6'
 
-    - name: Compilar APK Debug Unificado
-      run: ./gradlew assembleDebug
+    - name: Compilar APK Debug
+      run: gradle assembleDebug
 
     - name: Renomear APK para distribuição
       run: |
@@ -41,7 +43,7 @@ jobs:
           Versão v2.9.4 oficial:
           - Visualizador térmico monoespaçado de 32 colunas editável
           - Envio nativo em UTF-8 puro validado
-          - Alinhamento do pipeline de atualização contínua
+          - Alinhamento do pipeline de compilação contínua
         files: AirPrinter.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
